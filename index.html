@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#22c55e" />
+  <title>NutriPath — Nutrición y calorías</title>
+  <link rel="manifest" href="manifest.webmanifest?v=2" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=2" />
+  <link rel="stylesheet" href="styles.css?v=2" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🥗 <span>NutriPath</span></div>
+    <div class="top-actions">
+      <button id="theme-toggle" class="icon-btn" title="Tema claro/oscuro">🌙</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- ================= INICIO / DIARIO ================= -->
+    <section id="view-inicio" class="view active">
+      <div class="date-nav">
+        <button id="day-prev" class="icon-btn">‹</button>
+        <div id="day-label" class="day-label">Hoy</div>
+        <button id="day-next" class="icon-btn">›</button>
+      </div>
+
+      <div class="card summary">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+            <circle id="ring-fg" class="ring-fg" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="ring-center">
+            <div id="kcal-left" class="ring-num">0</div>
+            <div class="ring-cap">kcal restantes</div>
+          </div>
+        </div>
+        <div class="summary-side">
+          <div class="sum-row"><span>Objetivo</span><b id="sum-goal">— kcal</b></div>
+          <div class="sum-row"><span>Consumidas</span><b id="sum-eaten">0 kcal</b></div>
+          <div class="sum-row"><span>Ejercicio</span><b id="sum-exercise">0 kcal</b></div>
+        </div>
+      </div>
+
+      <div class="macros">
+        <div class="macro">
+          <div class="macro-top"><span>Proteínas</span><b><span id="m-prot">0</span> / <span id="m-prot-goal">0</span> g</b></div>
+          <div class="bar"><i id="bar-prot" class="fill prot"></i></div>
+        </div>
+        <div class="macro">
+          <div class="macro-top"><span>Carbohidratos</span><b><span id="m-carb">0</span> / <span id="m-carb-goal">0</span> g</b></div>
+          <div class="bar"><i id="bar-carb" class="fill carb"></i></div>
+        </div>
+        <div class="macro">
+          <div class="macro-top"><span>Grasas</span><b><span id="m-fat">0</span> / <span id="m-fat-goal">0</span> g</b></div>
+          <div class="bar"><i id="bar-fat" class="fill fat"></i></div>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="qa" data-add="buscar">🔎<span>Buscar</span></button>
+        <button class="qa" data-add="foto">📷<span>Foto IA</span></button>
+        <button class="qa" data-add="barras">🏷️<span>Código</span></button>
+        <button class="qa" data-add="ejercicio">🔥<span>Ejercicio</span></button>
+      </div>
+
+      <div id="meals"></div>
+    </section>
+
+    <!-- ================= PROGRESO ================= -->
+    <section id="view-progreso" class="view">
+      <h2 class="view-title">Progreso</h2>
+      <div class="card">
+        <div class="weight-add">
+          <input id="peso-input" type="number" inputmode="decimal" step="0.1" placeholder="Peso de hoy (kg)" />
+          <button id="peso-save" class="btn">Guardar</button>
+        </div>
+        <canvas id="peso-chart" height="160"></canvas>
+        <div id="peso-stats" class="peso-stats"></div>
+      </div>
+      <div class="card">
+        <h3 class="card-h">Resumen semanal (kcal)</h3>
+        <canvas id="kcal-chart" height="160"></canvas>
+      </div>
+    </section>
+
+    <!-- ================= PERFIL ================= -->
+    <section id="view-perfil" class="view">
+      <h2 class="view-title">Perfil y objetivo</h2>
+      <div class="card">
+        <label class="fld"><span>Nombre</span><input id="p-nombre" type="text" placeholder="Tu nombre" /></label>
+        <label class="fld"><span>PIN (4 dígitos, para la nube)</span><input id="p-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" /></label>
+        <div class="two">
+          <label class="fld"><span>Sexo</span>
+            <select id="p-sexo"><option value="h">Hombre</option><option value="m">Mujer</option></select>
+          </label>
+          <label class="fld"><span>Edad</span><input id="p-edad" type="number" inputmode="numeric" placeholder="años" /></label>
+        </div>
+        <div class="two">
+          <label class="fld"><span>Altura (cm)</span><input id="p-altura" type="number" inputmode="numeric" placeholder="cm" /></label>
+          <label class="fld"><span>Peso (kg)</span><input id="p-peso" type="number" inputmode="decimal" step="0.1" placeholder="kg" /></label>
+        </div>
+        <label class="fld"><span>Nivel de actividad</span>
+          <select id="p-actividad">
+            <option value="1.2">Sedentario (poco o nada de ejercicio)</option>
+            <option value="1.375">Ligero (1-3 días/semana)</option>
+            <option value="1.55" selected>Moderado (3-5 días/semana)</option>
+            <option value="1.725">Alto (6-7 días/semana)</option>
+            <option value="1.9">Muy alto (trabajo físico + entreno)</option>
+          </select>
+        </label>
+        <label class="fld"><span>Objetivo</span>
+          <select id="p-objetivo">
+            <option value="perder_r">Perder peso rápido (−500 kcal)</option>
+            <option value="perder" selected>Perder peso (−300 kcal)</option>
+            <option value="mantener">Mantener</option>
+            <option value="ganar">Ganar músculo (+300 kcal)</option>
+            <option value="ganar_r">Ganar peso rápido (+500 kcal)</option>
+          </select>
+        </label>
+        <button id="p-guardar" class="btn primary big">Guardar y calcular</button>
+      </div>
+
+      <div id="perfil-resultado" class="card result hidden">
+        <h3 class="card-h">Tu plan diario</h3>
+        <div class="plan-grid">
+          <div><div class="plan-num" id="r-tdee">—</div><div class="plan-cap">Gasto (TDEE)</div></div>
+          <div><div class="plan-num" id="r-kcal">—</div><div class="plan-cap">Objetivo kcal</div></div>
+          <div><div class="plan-num" id="r-prot">—</div><div class="plan-cap">Proteína g</div></div>
+          <div><div class="plan-num" id="r-carb">—</div><div class="plan-cap">Carbos g</div></div>
+          <div><div class="plan-num" id="r-fat">—</div><div class="plan-cap">Grasa g</div></div>
+          <div><div class="plan-num" id="r-imc">—</div><div class="plan-cap">IMC</div></div>
+        </div>
+        <p id="r-nota" class="nota"></p>
+      </div>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section id="view-ajustes" class="view">
+      <h2 class="view-title">Ajustes</h2>
+      <div class="card">
+        <h3 class="card-h">🤖 IA de reconocimiento de comida</h3>
+        <p class="nota">Pega tu <b>API key de Anthropic (Claude)</b>. Se guarda solo en este dispositivo (localStorage) y se usa para estimar las calorías de una foto. Consíguela en <b>console.anthropic.com</b>.</p>
+        <label class="fld"><span>API key (empieza por sk-ant-…)</span><input id="a-key" type="password" placeholder="sk-ant-..." /></label>
+        <label class="fld"><span>Modelo</span>
+          <select id="a-model">
+            <option value="claude-sonnet-4-6">Sonnet 4.6 (recomendado, mejor visión)</option>
+            <option value="claude-haiku-4-5-20251001">Haiku 4.5 (más barato)</option>
+            <option value="claude-opus-4-8">Opus 4.8 (máxima calidad)</option>
+          </select>
+        </label>
+        <button id="a-key-save" class="btn">Guardar API key</button>
+        <div id="a-key-state" class="nota"></div>
+      </div>
+      <div class="card">
+        <h3 class="card-h">☁️ Nube</h3>
+        <p class="nota">Tu diario, peso y objetivos se guardan en la nube con tu nombre + PIN (en Perfil). Se sincroniza solo entre tus dispositivos.</p>
+        <div id="cloud-state" class="nota">Estado: local</div>
+      </div>
+      <div class="card">
+        <h3 class="card-h">Datos</h3>
+        <button id="export-data" class="btn">Exportar mis datos</button>
+        <button id="reset-day" class="btn danger">Borrar el día actual</button>
+      </div>
+      <p class="version">NutriPath v1 · datos por 100 g · fuentes: base local + Open Food Facts</p>
+    </section>
+  </main>
+
+  <!-- ================= NAV INFERIOR ================= -->
+  <nav class="bottom-nav">
+    <button class="tab active" data-view="inicio">🍽️<span>Diario</span></button>
+    <button class="tab" data-view="progreso">📈<span>Progreso</span></button>
+    <button class="tab" data-view="perfil">🎯<span>Objetivo</span></button>
+    <button class="tab" data-view="ajustes">⚙️<span>Ajustes</span></button>
+  </nav>
+
+  <!-- ================= MODAL: BUSCAR / AÑADIR ================= -->
+  <div id="modal-buscar" class="modal hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <b id="buscar-title">Añadir alimento</b>
+        <button class="icon-btn" data-close="modal-buscar">✕</button>
+      </div>
+      <div class="search-row">
+        <input id="buscar-input" type="text" placeholder="Busca: pollo, arroz, manzana…" />
+      </div>
+      <div id="buscar-results" class="results"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PORCIÓN ================= -->
+  <div id="modal-porcion" class="modal hidden">
+    <div class="sheet small">
+      <div class="sheet-head">
+        <b id="porcion-nombre">Alimento</b>
+        <button class="icon-btn" data-close="modal-porcion">✕</button>
+      </div>
+      <div class="porcion-body">
+        <label class="fld"><span>Cantidad (g)</span><input id="porcion-gramos" type="number" inputmode="decimal" value="100" /></label>
+        <label class="fld"><span>Comida</span>
+          <select id="porcion-meal">
+            <option value="desayuno">Desayuno</option>
+            <option value="comida">Comida</option>
+            <option value="cena">Cena</option>
+            <option value="snack">Snack</option>
+          </select>
+        </label>
+        <div id="porcion-preview" class="porcion-preview"></div>
+        <button id="porcion-add" class="btn primary big">Añadir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: FOTO IA ================= -->
+  <div id="modal-foto" class="modal hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <b>📷 Reconocer comida con IA</b>
+        <button class="icon-btn" data-close="modal-foto">✕</button>
+      </div>
+      <div class="foto-body">
+        <input id="foto-input" type="file" accept="image/*" capture="environment" hidden />
+        <button id="foto-pick" class="btn primary big">Elegir / hacer foto</button>
+        <img id="foto-preview" class="foto-preview hidden" alt="comida" />
+        <div id="foto-status" class="nota"></div>
+        <div id="foto-result" class="results"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CÓDIGO DE BARRAS ================= -->
+  <div id="modal-barras" class="modal hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <b>🏷️ Código de barras</b>
+        <button class="icon-btn" data-close="modal-barras">✕</button>
+      </div>
+      <div class="foto-body">
+        <video id="barras-video" class="barras-video hidden" playsinline></video>
+        <button id="barras-scan" class="btn primary big">Escanear con la cámara</button>
+        <div class="or">— o —</div>
+        <div class="search-row">
+          <input id="barras-input" type="text" inputmode="numeric" placeholder="Escribe el código (EAN)" />
+          <button id="barras-go" class="btn">Buscar</button>
+        </div>
+        <div id="barras-status" class="nota"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: EJERCICIO ================= -->
+  <div id="modal-ejercicio" class="modal hidden">
+    <div class="sheet small">
+      <div class="sheet-head">
+        <b>🔥 Añadir ejercicio</b>
+        <button class="icon-btn" data-close="modal-ejercicio">✕</button>
+      </div>
+      <div class="porcion-body">
+        <label class="fld"><span>Actividad</span><input id="ej-nombre" type="text" placeholder="Ej: correr, gimnasio…" /></label>
+        <label class="fld"><span>Calorías quemadas (kcal)</span><input id="ej-kcal" type="number" inputmode="numeric" placeholder="kcal" /></label>
+        <button id="ej-add" class="btn primary big">Añadir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Firebase (compat v8) para la sincronización en la nube -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="firebase-config.js?v=2"></script>
+  <script src="foods.js?v=2"></script>
+  <script src="app.js?v=2"></script>
+</body>
+</html>
