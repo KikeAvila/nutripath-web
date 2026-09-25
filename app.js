@@ -35,6 +35,8 @@ function nuevoEstado() {
     plan: null,        // {tdee,kcal,prot,carb,fat}
     dias: {},          // iso -> {comidas:{...}, ejercicio:[]}
     pesos: {},         // iso -> kg
+    porciones: {},     // nombreLower -> gramos habituales (última porción usada)
+    recientes: [],     // alimentos usados recientemente (per 100 g), el más nuevo primero
     cloudTs: 0,
   };
 }
@@ -43,6 +45,22 @@ function loadState() {
   catch (_) { S = nuevoEstado(); }
   S.perfil = Object.assign(nuevoEstado().perfil, S.perfil || {});
   S.dias = S.dias || {}; S.pesos = S.pesos || {};
+  S.porciones = S.porciones || {}; S.recientes = S.recientes || [];
+}
+// gramos a proponer: prioriza la cantidad/porción escrita; si no, tu porción
+// habitual recordada para ese alimento; si no, la estimación por defecto.
+function gramosPara(parsed, nombre) {
+  if (parsed.qty == null && parsed.porcG == null) {
+    const r = S.porciones[(nombre || "").toLowerCase()];
+    if (r) return r;
+  }
+  return gramosEstimados(parsed, nombre);
+}
+function recordarPorcion(food, g) {
+  S.porciones[food.n.toLowerCase()] = g;
+  S.recientes = S.recientes.filter((f) => f.n.toLowerCase() !== food.n.toLowerCase());
+  S.recientes.unshift({ n: food.n, kcal: food.kcal, p: food.p, c: food.c, f: food.f, marca: food.marca || "" });
+  S.recientes = S.recientes.slice(0, 12);
 }
 function saveState() {
   localStorage.setItem(KEY, JSON.stringify(S));
@@ -252,7 +270,7 @@ let buscarTimer = null;
 function buscarLive() {
   const q = $("buscar-input").value.trim();
   const cont = $("buscar-results");
-  if (!q) { cont.innerHTML = `<div class="res hint"><div class="r-main"><span class="r-sub">Escribe un alimento. Ej: “2 huevos”, “un plato de arroz”, “pechuga de pollo”.</span></div></div>`; return; }
+  if (!q) { renderRecientes(); return; }
   const parsed = parseTexto(q);
   const locales = buscarLocal(parsed.food);
   let html = "";
@@ -263,9 +281,10 @@ function buscarLive() {
   }
   // resultados locales
   locales.forEach((f, i) => {
-    const g = gramosEstimados(parsed, f.n);
+    const g = gramosPara(parsed, f.n);
+    const hab = S.porciones[f.n.toLowerCase()] && parsed.qty == null && parsed.porcG == null ? " ⭐" : "";
     const kcal = round(f.kcal * g / 100, 0);
-    html += resHTML(i, f.n, `${g} g · P${round(f.p * g / 100, 0)} C${round(f.c * g / 100, 0)} G${round(f.f * g / 100, 0)}`, kcal, "loc");
+    html += resHTML(i, f.n + hab, `${g} g · P${round(f.p * g / 100, 0)} C${round(f.c * g / 100, 0)} G${round(f.f * g / 100, 0)}`, kcal, "loc");
   });
   // opción IA por texto (platos compuestos / lo que sea)
   if (q.length > 2 && localStorage.getItem("np_key")) {
@@ -278,7 +297,7 @@ function buscarLive() {
   // enganchar clics locales
   locales.forEach((f, i) => {
     const el = cont.querySelector(`[data-loc="${i}"]`);
-    if (el) el.onclick = () => abrirPorcion(f, gramosEstimados(parsed, f.n));
+    if (el) el.onclick = () => abrirPorcion(f, gramosPara(parsed, f.n));
   });
   const iaEl = cont.querySelector("[data-ia]");
   if (iaEl) iaEl.onclick = () => estimarTextoIA(q);
@@ -286,6 +305,23 @@ function buscarLive() {
   // Open Food Facts (debounce)
   clearTimeout(buscarTimer);
   buscarTimer = setTimeout(() => buscarOFF(parsed.food, parsed), 450);
+}
+function renderRecientes() {
+  const cont = $("buscar-results");
+  if (!S.recientes.length) {
+    cont.innerHTML = `<div class="res hint"><div class="r-main"><span class="r-sub">Escribe un alimento. Ej: “2 huevos”, “un plato de arroz”, “pechuga de pollo”. Se guardará tu porción habitual ⭐.</span></div></div>`;
+    return;
+  }
+  let html = `<div class="res hint"><div class="r-main"><span class="r-sub">🕘 Recientes (tu porción habitual)</span></div></div>`;
+  S.recientes.forEach((f, i) => {
+    const g = S.porciones[f.n.toLowerCase()] || 100;
+    html += resHTML(i, f.n, `${g} g · ${round(f.kcal * g / 100, 0)} kcal`, round(f.kcal * g / 100, 0), "rec");
+  });
+  cont.innerHTML = html;
+  S.recientes.forEach((f, i) => {
+    const el = cont.querySelector(`[data-rec="${i}"]`);
+    if (el) el.onclick = () => abrirPorcion(f, S.porciones[f.n.toLowerCase()] || 100);
+  });
 }
 function resHTML(idx, nombre, sub, kcal, tipo) {
   return `<div class="res" data-${tipo}="${idx}"><div class="r-main"><span class="r-name">${esc(nombre)}</span>
@@ -304,7 +340,7 @@ async function buscarOFF(txt, parsed) {
     if (!prods.length) return;
     const cont = $("buscar-results");
     prods.forEach((f, i) => {
-      const g = gramosEstimados(parsed, f.n);
+      const g = gramosPara(parsed, f.n);
       const el = document.createElement("div");
       el.innerHTML = resHTML(i, f.n, `${f.marca ? f.marca + " · " : ""}${g} g`, round(f.kcal * g / 100, 0), "off");
       const node = el.firstChild;
@@ -345,6 +381,7 @@ function confirmarPorcion() {
   diaActual().comidas[meal].push({
     n: f.n, g, kcal: round(f.kcal * g / 100, 1), p: round(f.p * g / 100, 1), c: round(f.c * g / 100, 1), f: round(f.f * g / 100, 1),
   });
+  recordarPorcion(f, g); // recuerda esta porción como la habitual de este alimento
   saveState(); cerrar("modal-porcion"); renderDiario();
   toast(`Añadido a ${MEAL_LABEL[meal]} ✅`);
 }
