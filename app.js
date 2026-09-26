@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 16; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 17; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -61,7 +61,7 @@ function recordarPorcion(food, g) {
   S.porciones[food.n.toLowerCase()] = g;
   S.recientes = S.recientes.filter((f) => f.n.toLowerCase() !== food.n.toLowerCase());
   S.recientes.unshift({ n: food.n, kcal: food.kcal, p: food.p, c: food.c, f: food.f, marca: food.marca || "" });
-  S.recientes = S.recientes.slice(0, 12);
+  S.recientes = S.recientes.slice(0, 20);
 }
 function saveState() {
   localStorage.setItem(KEY, JSON.stringify(S));
@@ -932,14 +932,46 @@ function abrirAyuda() {
   $("ayuda-ejemplo").textContent = (el && el.textContent !== "—" ? el.textContent + " kcal" : "Rellena tu perfil");
   abrir("modal-ayuda");
 }
+// ---------- copiar / repetir un día en otro ----------
+function abrirCopiar() {
+  const d = S.dias[curDate];
+  const total = d ? MEALS.reduce((a, m) => a + (d.comidas[m] || []).length, 0) : 0;
+  if (!total) { toast("Este día no tiene comidas que copiar"); return; }
+  $("copiar-info").textContent = `Copiar las ${total} comidas de ${fmtDia(curDate)} a otro día:`;
+  $("copiar-fecha").value = "";
+  $("copiar-reemplazar").checked = false;
+  abrir("modal-copiar");
+}
+function copiarDia(destinoISO, reemplazar) {
+  if (!destinoISO) { toast("Elige un día"); return; }
+  const orig = S.dias[curDate];
+  if (!orig) { toast("Este día no tiene comidas"); return; }
+  if (!S.dias[destinoISO]) S.dias[destinoISO] = { comidas: { desayuno: [], comida: [], cena: [], snack: [] }, ejercicio: [] };
+  const dst = S.dias[destinoISO];
+  dst.comidas = dst.comidas || { desayuno: [], comida: [], cena: [], snack: [] };
+  MEALS.forEach((m) => {
+    const copia = (orig.comidas[m] || []).map((it) => Object.assign({}, it));
+    dst.comidas[m] = reemplazar ? copia : (dst.comidas[m] || []).concat(copia);
+  });
+  saveState(); cerrar("modal-copiar"); renderDiario();
+  toast("Comidas copiadas a " + fmtDia(destinoISO) + " ✅");
+}
+// ---------- apariencia (acento + fondos claro/oscuro) ----------
+function aplicarApariencia() {
+  document.body.setAttribute("data-accent", localStorage.getItem("np_accent") || "verde");
+  document.body.setAttribute("data-darkbg", localStorage.getItem("np_darkbg") || "verde");
+  document.body.setAttribute("data-lightbg", localStorage.getItem("np_lightbg") || "verde");
+  document.body.setAttribute("data-macros", localStorage.getItem("np_macros") || "normal");
+}
 
 // ================= TEMA =================
-function setTheme(t) { document.body.setAttribute("data-theme", t); localStorage.setItem("np_theme", t); $("theme-toggle").textContent = t === "dark" ? "☀️" : "🌙"; }
+function setTheme(t) { document.body.setAttribute("data-theme", t); localStorage.setItem("np_theme", t); $("theme-toggle").textContent = t === "dark" ? "☀️" : "🌙"; const s = $("ap-modo"); if (s) s.value = t; }
 function toggleTheme() { setTheme(document.body.getAttribute("data-theme") === "dark" ? "light" : "dark"); }
 
 // ================= INIT =================
 function init() {
   loadState();
+  aplicarApariencia();
   setTheme(localStorage.getItem("np_theme") || "light");
   renderPerfil(); renderDiario();
 
@@ -950,9 +982,28 @@ function init() {
   $("help-btn").onclick = abrirAyuda;
   $("explica-btn").onclick = abrirAyuda;
 
+  // apariencia (modo, fondos, acento)
+  $("ap-modo").value = localStorage.getItem("np_theme") || "light";
+  $("ap-modo").onchange = () => setTheme($("ap-modo").value);
+  $("ap-darkbg").value = localStorage.getItem("np_darkbg") || "verde";
+  $("ap-darkbg").onchange = () => { localStorage.setItem("np_darkbg", $("ap-darkbg").value); aplicarApariencia(); };
+  $("ap-lightbg").value = localStorage.getItem("np_lightbg") || "verde";
+  $("ap-lightbg").onchange = () => { localStorage.setItem("np_lightbg", $("ap-lightbg").value); aplicarApariencia(); };
+  $("ap-accent").value = localStorage.getItem("np_accent") || "verde";
+  $("ap-accent").onchange = () => { localStorage.setItem("np_accent", $("ap-accent").value); aplicarApariencia(); };
+  $("ap-macros").value = localStorage.getItem("np_macros") || "normal";
+  $("ap-macros").onchange = () => { localStorage.setItem("np_macros", $("ap-macros").value); aplicarApariencia(); };
+
   // día
   $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };
   $("day-next").onclick = () => { const n = new Date(new Date(curDate).getTime() + 864e5); if (hoyISO(n) <= hoyISO()) { curDate = hoyISO(n); renderDiario(); } };
+  // copiar/repetir día
+  $("copy-day").onclick = abrirCopiar;
+  document.querySelectorAll("#modal-copiar [data-copy]").forEach((b) => b.onclick = () => {
+    const off = b.dataset.copy === "ayer" ? -1 : 1;
+    copiarDia(hoyISO(new Date(new Date(curDate).getTime() + off * 864e5)), $("copiar-reemplazar").checked);
+  });
+  $("copiar-go").onclick = () => copiarDia($("copiar-fecha").value, $("copiar-reemplazar").checked);
 
   // quick actions
   document.querySelectorAll(".qa").forEach((b) => b.onclick = () => {

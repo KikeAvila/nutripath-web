@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=16" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=16" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="manifest" href="manifest.webmanifest?v=17" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=17" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <header class="topbar">
@@ -69,6 +69,7 @@
       </div>
 
       <div id="meals"></div>
+      <button id="copy-day" class="btn copiar-dia">⧉ Copiar las comidas de este día a otro</button>
     </section>
 
     <!-- ================= PROGRESO ================= -->
@@ -181,6 +182,43 @@
         <div id="a-key-state" class="nota"></div>
       </div>
       <div class="card">
+        <h3 class="card-h">🎨 Apariencia</h3>
+        <label class="fld"><span>Modo</span>
+          <select id="ap-modo"><option value="light">☀️ Claro</option><option value="dark">🌙 Oscuro</option></select>
+        </label>
+        <label class="fld"><span>Fondo en modo oscuro</span>
+          <select id="ap-darkbg">
+            <option value="verde">Verde oscuro (actual)</option>
+            <option value="gris">Gris oscuro</option>
+            <option value="negro">Negro puro (estilo Fitia)</option>
+            <option value="azulnoche">Azul noche</option>
+          </select>
+        </label>
+        <label class="fld"><span>Fondo en modo claro</span>
+          <select id="ap-lightbg">
+            <option value="verde">Verde claro (actual)</option>
+            <option value="neutro">Blanco/gris neutro</option>
+            <option value="crema">Crema cálido</option>
+          </select>
+        </label>
+        <label class="fld"><span>Vista de macros</span>
+          <select id="ap-macros">
+            <option value="normal">Normal (barras anchas)</option>
+            <option value="compact">Compacta (una línea, estilo Fitia)</option>
+          </select>
+        </label>
+        <label class="fld"><span>Color de acento</span>
+          <select id="ap-accent">
+            <option value="verde">Verde</option>
+            <option value="azul">Azul</option>
+            <option value="naranja">Naranja</option>
+            <option value="morado">Morado</option>
+            <option value="rosa">Rosa</option>
+            <option value="rojo">Rojo</option>
+          </select>
+        </label>
+      </div>
+      <div class="card">
         <h3 class="card-h">☁️ Nube</h3>
         <p class="nota">Tu diario, peso y objetivos se guardan en la nube con tu nombre + PIN (en Perfil). Se sincroniza solo entre tus dispositivos.</p>
         <div id="cloud-state" class="nota">Estado: local</div>
@@ -213,6 +251,26 @@
         <input id="buscar-input" type="text" placeholder="Busca: pollo, arroz, manzana…" />
       </div>
       <div id="buscar-results" class="results"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: COPIAR/REPETIR DÍA ================= -->
+  <div id="modal-copiar" class="modal hidden">
+    <div class="sheet small">
+      <div class="sheet-head">
+        <b>⧉ Copiar comidas del día</b>
+        <button class="icon-btn" data-close="modal-copiar">✕</button>
+      </div>
+      <div class="porcion-body">
+        <p class="nota" id="copiar-info">Copiar las comidas a otro día.</p>
+        <div class="chips">
+          <button type="button" class="chip" data-copy="ayer">⬅️ A ayer</button>
+          <button type="button" class="chip" data-copy="manana">A mañana ➡️</button>
+        </div>
+        <label class="fld"><span>O elige el día destino</span><input id="copiar-fecha" type="date" /></label>
+        <label class="fld check-line"><input id="copiar-reemplazar" type="checkbox" /> <span>Reemplazar lo que ya haya ese día (si no, se añade)</span></label>
+        <button id="copiar-go" class="btn primary big">Copiar al día elegido</button>
+      </div>
     </div>
   </div>
 
@@ -381,8 +439,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=16"></script>
-  <script src="foods.js?v=16"></script>
-  <script src="app.js?v=16"></script>
+  <script src="firebase-config.js?v=17"></script>
+  <script src="foods.js?v=17"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
