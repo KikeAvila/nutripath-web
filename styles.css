@@ -229,6 +229,24 @@ h2,h3{margin:0; letter-spacing:-.01em}
 .ayuda-item b{font-size:14px}
 .ayuda-item p{font-size:12.5px; color:var(--muted); line-height:1.5; margin:3px 0 0}
 
+/* Agua del día */
+.agua-card{padding:14px 16px}
+.agua-head{display:flex; align-items:center; justify-content:space-between; font-weight:800; margin-bottom:8px}
+.agua-head b{color:var(--fat)}
+.agua-glasses{display:flex; flex-wrap:wrap; gap:3px; font-size:18px; margin-bottom:10px; min-height:24px}
+.agua-glasses .vaso{opacity:.85}
+.agua-btns{display:flex; gap:8px}
+.agua-btns .btn{margin-top:0}
+.agua-btns #agua-menos{width:64px; flex:0 0 auto}
+
+/* Acciones de cabecera de comida (guardar receta) */
+.meal-actions{display:flex; align-items:center; gap:6px}
+.meal-save{background:transparent; border:0; font-size:16px; cursor:pointer; opacity:.75}
+.meal-save:active{opacity:1}
+/* Comidas guardadas en resultados */
+.res.receta{border-style:dashed}
+.rec-del{background:transparent; border:0; font-size:14px; cursor:pointer; margin-left:6px; opacity:.6}
+
 /* Social (grupo familiar) */
 .social-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
 .social-code{font-size:16px; letter-spacing:2px; color:var(--brand-d)}

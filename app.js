@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 20; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 21; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -38,6 +38,7 @@ function nuevoEstado() {
     pesos: {},         // iso -> kg
     porciones: {},     // nombreLower -> gramos habituales (última porción usada)
     recientes: [],     // alimentos usados recientemente (per 100 g), el más nuevo primero
+    recetas: [],       // comidas guardadas: {nombre, items:[...]}
     social: { grupo: null }, // grupo familiar (código) para la parte social
     cloudTs: 0,
   };
@@ -48,6 +49,7 @@ function loadState() {
   S.perfil = Object.assign(nuevoEstado().perfil, S.perfil || {});
   S.dias = S.dias || {}; S.pesos = S.pesos || {};
   S.porciones = S.porciones || {}; S.recientes = S.recientes || [];
+  S.recetas = S.recetas || [];
   S.social = S.social || { grupo: null };
 }
 // gramos a proponer: prioriza la cantidad/porción escrita; si no, tu porción
@@ -75,6 +77,7 @@ function diaActual() {
   d.comidas = d.comidas || { desayuno: [], comida: [], cena: [], snack: [] };
   MEALS.forEach((m) => { d.comidas[m] = d.comidas[m] || []; });
   d.ejercicio = d.ejercicio || [];
+  d.agua = d.agua || 0; // vasos de 250 ml
   return d;
 }
 
@@ -85,10 +88,11 @@ function calcularPlan(p) {
   // Mifflin-St Jeor
   let bmr = 10 * kg + 6.25 * cm - 5 * edad + (p.sexo === "h" ? 5 : -161);
   const tdee = bmr * (+p.actividad || 1.55);
-  const ajuste = { perder_r: -500, perder: -300, mantener: 0, ganar: 300, ganar_r: 500 }[p.objetivo] || 0;
+  const ajuste = { perder_r: -500, perder: -300, perder_grasa: -400, mantener: 0, ganar_musculo: 200, ganar: 400, ganar_r: 500 }[p.objetivo] || 0;
   let kcal = Math.max(1200, Math.round((tdee + ajuste) / 10) * 10);
-  // Macros: proteína 2.0 g/kg, grasa 1.0 g/kg, resto carbohidratos
-  const prot = Math.round(2.0 * kg);
+  // Macros: proteína 2.0 g/kg (2.2 si el objetivo prioriza músculo/definición), grasa 1.0 g/kg, resto carbohidratos
+  const protPorKg = (p.objetivo === "perder_grasa" || p.objetivo === "ganar_musculo") ? 2.2 : 2.0;
+  const prot = Math.round(protPorKg * kg);
   const fat = Math.round(1.0 * kg);
   const carb = Math.max(0, Math.round((kcal - prot * 4 - fat * 9) / 4));
   const imc = round(kg / Math.pow(cm / 100, 2), 1);
@@ -182,7 +186,7 @@ function renderDiario() {
     const div = document.createElement("div");
     div.className = "meal";
     let html = `<div class="meal-head"><span>${MEAL_LABEL[m]} <span class="mk">${kcalM} kcal</span></span>
-      <button class="meal-add" data-meal="${m}">+</button></div>`;
+      <span class="meal-actions">${items.length ? `<button class="meal-save" data-meal="${m}" title="Guardar como comida">💾</button>` : ""}<button class="meal-add" data-meal="${m}">+</button></span></div>`;
     if (!items.length) html += `<div class="meal-empty">Sin alimentos</div>`;
     items.forEach((it, i) => {
       const sub = (it.g ? round(it.g, 0) + " " + (it.u || "g") + " · " : "") + `P${round(it.p, 0)} C${round(it.c, 0)} G${round(it.f, 0)}`;
@@ -219,6 +223,57 @@ function renderDiario() {
   cont.querySelectorAll(".it-del[data-ej]").forEach((b) => b.onclick = () => {
     diaActual().ejercicio.splice(+b.dataset.ej, 1); saveState(); renderDiario();
   });
+  // botón guardar comida (receta) por cada comida con alimentos
+  cont.querySelectorAll(".meal-save").forEach((b) => b.onclick = (e) => { e.stopPropagation(); guardarReceta(b.dataset.meal); });
+  renderAgua();
+}
+// ---------- agua del día ----------
+function renderAgua() {
+  const d = diaActual(), vasos = d.agua || 0;
+  $("agua-total").textContent = (vasos * 250) + " ml";
+  let g = ""; const meta = 8;
+  for (let i = 0; i < Math.max(meta, vasos); i++) g += `<span class="vaso ${i < vasos ? "on" : ""}">${i < vasos ? "💧" : "▫️"}</span>`;
+  $("agua-glasses").innerHTML = g;
+}
+function aguaMas() { diaActual().agua = (diaActual().agua || 0) + 1; saveState(); renderAgua(); }
+function aguaMenos() { const d = diaActual(); d.agua = Math.max(0, (d.agua || 0) - 1); saveState(); renderAgua(); }
+// ---------- comidas guardadas (recetas) ----------
+function guardarReceta(meal) {
+  const items = diaActual().comidas[meal] || [];
+  if (!items.length) { toast("Esa comida está vacía"); return; }
+  const nombre = (prompt("Nombre para esta comida guardada:", MEAL_LABEL[meal] + " de " + fmtDia(curDate)) || "").trim();
+  if (!nombre) return;
+  S.recetas.unshift({ nombre: nombre, items: items.map((it) => Object.assign({}, it)) });
+  S.recetas = S.recetas.slice(0, 40);
+  saveState(); toast("Comida guardada 💾");
+}
+function aplicarReceta(i) {
+  const r = S.recetas[i]; if (!r) return;
+  r.items.forEach((it) => diaActual().comidas[buscarMeal].push(Object.assign({}, it)));
+  saveState(); cerrar("modal-buscar"); renderDiario();
+  toast(`"${r.nombre}" añadido a ${MEAL_LABEL[buscarMeal]} ✅`);
+}
+function borrarReceta(i) { if (confirm("¿Borrar esta comida guardada?")) { S.recetas.splice(i, 1); saveState(); renderRecientes(); } }
+// ---------- resumen del día ("terminar el día") ----------
+function terminarDia() {
+  const plan = S.plan || {}, t = totalesDia(), d = diaActual();
+  const meta = plan.kcal || 0, rest = Math.round(meta + t.ej - t.kcal);
+  const estado = !meta ? "Configura tu perfil para ver la meta."
+    : rest >= 0 ? `Te has quedado <b>${rest} kcal por debajo</b> de tu meta. 👍`
+    : `Te has pasado <b>${Math.abs(rest)} kcal</b> de tu meta.`;
+  const dentro = meta && Math.abs(rest) <= 100;
+  $("resumen-body").innerHTML = `
+    <div class="porcion-preview" style="text-align:center">
+      <div style="font-size:26px;font-weight:800;color:var(--brand-d)">${Math.round(t.kcal)} / ${meta || "—"} kcal</div>
+      <div class="nota" style="margin-top:4px">${dentro ? "🎯 ¡Dentro del objetivo!" : estado}</div>
+    </div>
+    <div class="social-row"><span>Proteínas</span><span>${round(t.p, 0)} / ${plan.prot || 0} g</span></div>
+    <div class="social-row"><span>Carbohidratos</span><span>${round(t.c, 0)} / ${plan.carb || 0} g</span></div>
+    <div class="social-row"><span>Grasas</span><span>${round(t.f, 0)} / ${plan.fat || 0} g</span></div>
+    <div class="social-row"><span>🔥 Ejercicio</span><span>${Math.round(t.ej)} kcal</span></div>
+    <div class="social-row"><span>💧 Agua</span><span>${(d.agua || 0) * 250} ml (${d.agua || 0} vasos)</span></div>
+    <p class="nota">Sigue así cada día: la constancia es lo que hace bajar el peso. 💪</p>`;
+  abrir("modal-resumen");
 }
 function setMacro(k, val, goal) {
   $("m-" + k).textContent = round(val, 0);
@@ -258,7 +313,7 @@ function mostrarPlan(plan, p) {
   $("r-tdee").textContent = plan.tdee; $("r-kcal").textContent = plan.kcal;
   $("r-prot").textContent = plan.prot; $("r-carb").textContent = plan.carb;
   $("r-fat").textContent = plan.fat; $("r-imc").textContent = plan.imc;
-  const obj = { perder_r: "déficit fuerte (~0,7 kg/sem)", perder: "déficit moderado (~0,3 kg/sem)", mantener: "mantenimiento", ganar: "superávit moderado", ganar_r: "superávit fuerte" }[p.objetivo];
+  const obj = { perder_r: "déficit fuerte (~0,7 kg/sem)", perder: "déficit moderado (~0,3 kg/sem)", perder_grasa: "perder grasa (déficit + más proteína para conservar músculo)", mantener: "mantenimiento", ganar_musculo: "ganar músculo (ligero superávit + más proteína)", ganar: "superávit para ganar peso", ganar_r: "superávit fuerte" }[p.objetivo];
   let imcTxt = plan.imc < 18.5 ? "bajo peso" : plan.imc < 25 ? "peso normal" : plan.imc < 30 ? "sobrepeso" : "obesidad";
   $("r-nota").textContent = `Objetivo: ${obj}. IMC ${plan.imc} (${imcTxt}). Estos valores son una guía; ajústalos con tu progreso real.`;
 }
@@ -372,16 +427,31 @@ function buscarLive() {
 }
 function renderRecientes() {
   const cont = $("buscar-results");
-  if (!S.recientes.length) {
+  let html = "";
+  // comidas guardadas (recetas)
+  if (S.recetas && S.recetas.length) {
+    html += `<div class="res hint"><div class="r-main"><span class="r-sub">💾 Mis comidas guardadas</span></div></div>`;
+    S.recetas.forEach((r, i) => {
+      const kc = Math.round(r.items.reduce((a, it) => a + (+it.kcal || 0), 0));
+      html += `<div class="res receta" data-receta="${i}"><div class="r-main"><span class="r-name">💾 ${esc(r.nombre)}</span>
+        <span class="r-sub">${r.items.length} alimentos</span></div>
+        <span class="r-kcal">${kc} kcal</span><button class="rec-del" data-recdel="${i}" title="Borrar">🗑️</button></div>`;
+    });
+  }
+  if (!S.recientes.length && !(S.recetas && S.recetas.length)) {
     cont.innerHTML = `<div class="res hint"><div class="r-main"><span class="r-sub">Escribe un alimento. Ej: “2 huevos”, “un plato de arroz”, “pechuga de pollo”. Se guardará tu porción habitual ⭐.</span></div></div>`;
     return;
   }
-  let html = `<div class="res hint"><div class="r-main"><span class="r-sub">🕘 Recientes (tu porción habitual)</span></div></div>`;
-  S.recientes.forEach((f, i) => {
-    const g = S.porciones[f.n.toLowerCase()] || 100;
-    html += resHTML(i, f.n, `${g} g · ${round(f.kcal * g / 100, 0)} kcal`, round(f.kcal * g / 100, 0), "rec");
-  });
+  if (S.recientes.length) {
+    html += `<div class="res hint"><div class="r-main"><span class="r-sub">🕘 Recientes (tu porción habitual)</span></div></div>`;
+    S.recientes.forEach((f, i) => {
+      const g = S.porciones[f.n.toLowerCase()] || 100;
+      html += resHTML(i, f.n, `${g} g · ${round(f.kcal * g / 100, 0)} kcal`, round(f.kcal * g / 100, 0), "rec");
+    });
+  }
   cont.innerHTML = html;
+  cont.querySelectorAll("[data-receta]").forEach((el) => el.onclick = (e) => { if (e.target.dataset.recdel != null) return; aplicarReceta(+el.dataset.receta); });
+  cont.querySelectorAll("[data-recdel]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); borrarReceta(+b.dataset.recdel); });
   S.recientes.forEach((f, i) => {
     const el = cont.querySelector(`[data-rec="${i}"]`);
     if (el) el.onclick = () => abrirPorcion(f, S.porciones[f.n.toLowerCase()] || 100);
@@ -1211,6 +1281,10 @@ function init() {
   $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };
   $("day-next").onclick = () => { const n = new Date(new Date(curDate).getTime() + 864e5); if (hoyISO(n) <= hoyISO()) { curDate = hoyISO(n); renderDiario(); } };
   $("day-label").onclick = () => { calExpandido = !calExpandido; if (calExpandido) { const d = new Date(curDate + "T00:00:00"); calMes = { y: d.getFullYear(), m: d.getMonth() }; } renderCalendario(); };
+  // agua + terminar día
+  $("agua-mas").onclick = aguaMas;
+  $("agua-menos").onclick = aguaMenos;
+  $("terminar-dia").onclick = terminarDia;
   // copiar/repetir día
   $("copy-day").onclick = abrirCopiar;
   document.querySelectorAll("#modal-copiar [data-copy]").forEach((b) => b.onclick = () => {
