@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 22; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 23; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -302,13 +302,28 @@ function guardarPerfil() {
   p.pesoObjetivo = +$("p-peso-obj").value || null;
   p.actividad = +$("p-actividad").value; p.objetivo = $("p-objetivo").value;
   const plan = calcularPlan(p);
-  if (!plan) { toast("Completa edad, altura y peso"); return; }
-  S.plan = plan;
-  if (p.peso) S.pesos[hoyISO()] = p.peso;
-  saveState(); mostrarPlan(plan, p); renderDiario();
-  toast("Plan actualizado ✅");
+  if (plan) { S.plan = plan; if (p.peso) S.pesos[hoyISO()] = p.peso; }
+  saveState();
+  if (plan) { mostrarPlan(plan, p); renderDiario(); toast("Plan actualizado ✅"); }
+  else toast("Guardado. Añade edad, altura y peso para calcular tu plan.");
+  // Conecta con la nube SIEMPRE que haya nombre+PIN (aunque falte el perfil):
+  // así en un dispositivo nuevo, con solo tu nombre y PIN, se descarga tu usuario.
   if (cloudReady() && p.nombre && /^\d{4}$/.test(p.pin)) cloudLogin(p.nombre, p.pin);
   actualizarEstadoNube();
+}
+// "Entrar / cargar mi usuario" en un dispositivo nuevo: solo pide nombre + PIN.
+function entrarUsuario() {
+  const nombre = $("p-nombre").value.trim(), pin = $("p-pin").value.trim();
+  if (!nombre || !/^\d{4}$/.test(pin)) { toast("Escribe tu nombre y un PIN de 4 cifras"); return; }
+  if (!cloudReady()) { toast("Sin conexión a la nube ahora mismo"); return; }
+  S.perfil.nombre = nombre; S.perfil.pin = pin;
+  S.cloudTs = 0; // forzar que gane la copia de la nube (cargar, no subir)
+  toast("Cargando tu usuario…");
+  cloudLogin(nombre, pin).then((ok) => {
+    if (ok) { renderPerfil(); renderDiario(); toast("Usuario cargado ☁️"); }
+    else toast("No pude entrar (revisa el PIN)");
+    actualizarEstadoNube();
+  });
 }
 function mostrarPlan(plan, p) {
   $("perfil-resultado").classList.remove("hidden");
@@ -1331,6 +1346,7 @@ function init() {
 
   // perfil
   $("p-guardar").onclick = guardarPerfil;
+  $("p-login").onclick = entrarUsuario;
   // progreso
   $("peso-save").onclick = guardarPeso;
 

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=22" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=22" />
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="manifest" href="manifest.webmanifest?v=23" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=23" />
+  <link rel="stylesheet" href="styles.css?v=23" />
 </head>
 <body>
   <header class="topbar">
@@ -114,6 +114,8 @@
       <div class="card">
         <label class="fld"><span>Nombre</span><input id="p-nombre" type="text" placeholder="Tu nombre" /></label>
         <label class="fld"><span>PIN (4 dígitos, para la nube)</span><input id="p-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" /></label>
+        <button id="p-login" class="btn">☁️ Entrar / cargar mi usuario en este dispositivo</button>
+        <p class="nota">¿Cambias de móvil u ordenador? Pon <b>el mismo nombre y PIN</b> y pulsa aquí: se descarga tu progreso guardado en la nube.</p>
         <div class="two">
           <label class="fld"><span>Sexo</span>
             <select id="p-sexo"><option value="h">Hombre</option><option value="m">Mujer</option></select>
@@ -479,8 +481,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=22"></script>
-  <script src="foods.js?v=22"></script>
-  <script src="app.js?v=22"></script>
+  <script src="firebase-config.js?v=23"></script>
+  <script src="foods.js?v=23"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
