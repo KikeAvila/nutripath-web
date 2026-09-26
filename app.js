@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 21; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 22; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -88,10 +88,12 @@ function calcularPlan(p) {
   // Mifflin-St Jeor
   let bmr = 10 * kg + 6.25 * cm - 5 * edad + (p.sexo === "h" ? 5 : -161);
   const tdee = bmr * (+p.actividad || 1.55);
-  const ajuste = { perder_r: -500, perder: -300, perder_grasa: -400, mantener: 0, ganar_musculo: 200, ganar: 400, ganar_r: 500 }[p.objetivo] || 0;
+  // Recomposición: comer cerca del mantenimiento (déficit muy leve) con MUCHA proteína
+  // + entreno de fuerza → se pierde grasa y se gana músculo a la vez.
+  const ajuste = { perder_r: -500, perder: -300, recomp: -150, mantener: 0, ganar: 400, ganar_r: 500 }[p.objetivo] || 0;
   let kcal = Math.max(1200, Math.round((tdee + ajuste) / 10) * 10);
-  // Macros: proteína 2.0 g/kg (2.2 si el objetivo prioriza músculo/definición), grasa 1.0 g/kg, resto carbohidratos
-  const protPorKg = (p.objetivo === "perder_grasa" || p.objetivo === "ganar_musculo") ? 2.2 : 2.0;
+  // Macros: proteína 2.0 g/kg (2.2 en recomposición), grasa 1.0 g/kg, resto carbohidratos
+  const protPorKg = (p.objetivo === "recomp") ? 2.2 : 2.0;
   const prot = Math.round(protPorKg * kg);
   const fat = Math.round(1.0 * kg);
   const carb = Math.max(0, Math.round((kcal - prot * 4 - fat * 9) / 4));
@@ -313,7 +315,7 @@ function mostrarPlan(plan, p) {
   $("r-tdee").textContent = plan.tdee; $("r-kcal").textContent = plan.kcal;
   $("r-prot").textContent = plan.prot; $("r-carb").textContent = plan.carb;
   $("r-fat").textContent = plan.fat; $("r-imc").textContent = plan.imc;
-  const obj = { perder_r: "déficit fuerte (~0,7 kg/sem)", perder: "déficit moderado (~0,3 kg/sem)", perder_grasa: "perder grasa (déficit + más proteína para conservar músculo)", mantener: "mantenimiento", ganar_musculo: "ganar músculo (ligero superávit + más proteína)", ganar: "superávit para ganar peso", ganar_r: "superávit fuerte" }[p.objetivo];
+  const obj = { perder_r: "déficit fuerte (~0,7 kg/sem)", perder: "déficit moderado (~0,3 kg/sem)", recomp: "recomposición: casi mantenimiento + mucha proteína para perder grasa y ganar músculo a la vez (entrena fuerza)", mantener: "mantenimiento", ganar: "superávit para ganar peso", ganar_r: "superávit fuerte" }[p.objetivo];
   let imcTxt = plan.imc < 18.5 ? "bajo peso" : plan.imc < 25 ? "peso normal" : plan.imc < 30 ? "sobrepeso" : "obesidad";
   $("r-nota").textContent = `Objetivo: ${obj}. IMC ${plan.imc} (${imcTxt}). Estos valores son una guía; ajústalos con tu progreso real.`;
 }
