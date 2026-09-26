@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 13; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 14; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -462,7 +462,7 @@ async function estimarTextoIA(texto) {
     const food = { n: j.nombre || texto, kcal: j.kcal * 100 / g, p: (j.prot || 0) * 100 / g, c: (j.carb || 0) * 100 / g, f: (j.grasa || 0) * 100 / g };
     abrirPorcion(food, g);
   } catch (e) {
-    cont.innerHTML = `<div class="res hint"><div class="r-main"><span class="r-sub">No pude estimarlo (${esc(String(e.message || e))}). Revisa tu API key en Ajustes.</span></div></div>`;
+    cont.innerHTML = `<div class="res hint"><div class="r-main"><span class="r-sub">No pude estimarlo. ${esc(mensajeIAerror(e))}</span></div></div>`;
   }
 }
 
@@ -494,7 +494,7 @@ async function analizarFoto(file) {
     $("foto-result").appendChild(node);
     $("foto-result").insertAdjacentHTML("beforeend", `<p class="nota">Toca el resultado para añadirlo (podrás ajustar los gramos).</p>`);
   } catch (e) {
-    $("foto-status").textContent = "No pude reconocer la comida (" + (e.message || e) + "). Prueba otra foto o revisa tu API key.";
+    $("foto-status").textContent = "No pude reconocer la comida. " + mensajeIAerror(e);
   }
 }
 function leerImagen(file) {
@@ -514,6 +514,17 @@ function leerImagen(file) {
     };
     rd.onerror = rej; rd.readAsDataURL(file);
   });
+}
+
+// Traduce un error de IA a un mensaje claro para el usuario.
+function mensajeIAerror(e) {
+  const msg = String(e && (e.message || e));
+  const s = geminiStatus(e);
+  if (s === 429 || (s >= 500 && s <= 599) || /high demand|overloaded|sobrecarg|saturad/i.test(msg))
+    return "La IA gratis de Google está saturada ahora mismo (mucha gente usándola). Espera un minuto y vuelve a intentarlo.";
+  if (s === 400 || s === 403 || /key inválida|API key not valid|API sin activar/i.test(msg))
+    return "Revisa tu API key en Ajustes: parece inválida o sin permisos.";
+  return msg;
 }
 
 // ================= LLAMADA A LA IA (Gemini gratis o Anthropic) =================
@@ -548,37 +559,57 @@ async function llmAnthropic(input, maxTokens) {
   const data = await res.json();
   return (data.content || []).map((b) => b.text || "").join("");
 }
+// código de estado de un error de Gemini ("Gemini 503 [modelo]…" -> 503)
+function geminiStatus(e) { const m = String(e && (e.message || e)).match(/Gemini (\d+)/); return m ? +m[1] : 0; }
+// transitorio = saturación/límite: merece reintentar o probar otro modelo
+function esTransitorio(s) { return s === 429 || (s >= 500 && s <= 599); }
+function espera(ms) { return new Promise((r) => setTimeout(r, ms)); }
+// Llama al modelo reintentando si Google está saturado (503/429/5xx), con espera creciente.
+async function geminiCallReintento(apiKey, model, input, maxTokens) {
+  let ultimo = null;
+  for (let i = 0; i < 3; i++) {
+    try { return await geminiCall(apiKey, model, input, maxTokens); }
+    catch (e) { ultimo = e; if (esTransitorio(geminiStatus(e)) && i < 2) { await espera(900 * (i + 1)); continue; } throw e; }
+  }
+  throw ultimo;
+}
 async function llmGemini(input, maxTokens) {
   const apiKey = localStorage.getItem("np_gemini_key");
   if (!apiKey) throw new Error("sin API key de Gemini");
   const guardado = localStorage.getItem("np_gemini_model");
   if (guardado) {
-    try { return await geminiCall(apiKey, guardado, input, maxTokens); }
-    catch (e) { if (!/ 404/.test(String(e.message || e))) throw e; } // 400/403 = key mala: no sigas
+    try { return await geminiCallReintento(apiKey, guardado, input, maxTokens); }
+    catch (e) { const s = geminiStatus(e); if (s !== 404 && !esTransitorio(s)) throw e; } // 400/403 = key mala: corta
   }
-  // El modelo guardado ya no vale (o no hay): busca uno VIVO con sondeos mínimos
-  // (algunos modelos aparecen listados pero dan 404 al usarlos, p.ej. los que Google
-  // retira para cuentas nuevas), guárdalo y haz la llamada real una sola vez.
-  const { model } = await geminiProbar(apiKey);
-  localStorage.setItem("np_gemini_model", model);
-  return await geminiCall(apiKey, model, input, maxTokens);
+  // El modelo guardado no vale (404 retirado) o está saturado: prueba los demás
+  // modelos de la cuenta; el que responda se guarda para la próxima.
+  const modelos = await geminiListarModelos(apiKey);
+  if (!modelos.length) throw new Error("Esta API key no tiene modelos disponibles. Crea la key en aistudio.google.com/apikey y activa la 'Generative Language API'.");
+  let ultimo = null;
+  for (const m of modelos) {
+    if (m === guardado) continue;
+    try { const out = await geminiCallReintento(apiKey, m, input, maxTokens); localStorage.setItem("np_gemini_model", m); return out; }
+    catch (e) { ultimo = e; const s = geminiStatus(e); if (s !== 404 && !esTransitorio(s)) throw e; }
+  }
+  throw ultimo || new Error("Gemini no disponible ahora mismo. Prueba en un minuto.");
 }
 // Recorre los modelos de la cuenta y devuelve el PRIMERO que responde de verdad a
-// una llamada mínima. Así evitamos los que están listados pero dan 404 al usarlos.
+// una llamada mínima. Salta los retirados (404) y los saturados (503/429/5xx).
 async function geminiProbar(apiKey) {
   const modelos = await geminiListarModelos(apiKey);
   if (!modelos.length) throw new Error("Esta API key no tiene modelos disponibles. Crea la key en aistudio.google.com/apikey y activa la 'Generative Language API'.");
   let ultimo = null;
   for (const m of modelos) {
     try {
-      const r = await geminiCall(apiKey, m, { text: "Responde solo con la palabra OK." }, 10);
+      const r = await geminiCallReintento(apiKey, m, { text: "Responde solo con la palabra OK." }, 10);
       return { model: m, respuesta: (r || "").trim() };
     } catch (e) {
       ultimo = e;
-      if (!/ 404/.test(String(e.message || e))) throw e; // 400/403 = key inválida: no sigas probando
+      const s = geminiStatus(e);
+      if (s !== 404 && !esTransitorio(s)) throw e; // 400/403 = key inválida: no sigas probando
     }
   }
-  throw ultimo || new Error("Ningún modelo de la cuenta respondió.");
+  throw ultimo || new Error("Ningún modelo de la cuenta respondió (puede estar saturado; prueba en un minuto).");
 }
 async function geminiCall(apiKey, model, input, maxTokens) {
   const parts = [{ text: input.text }];
@@ -996,7 +1027,7 @@ function init() {
         const r = await llmAnthropic({ text: "Responde solo con la palabra OK." }, 10);
         $("a-key-state").textContent = "✅ Claude funciona. Respuesta: " + (r || "").trim();
       }
-    } catch (e) { $("a-key-state").textContent = "❌ Error: " + (e.message || e); }
+    } catch (e) { $("a-key-state").textContent = "❌ " + mensajeIAerror(e); }
   };
   // versión visible
   const vl = $("version-line"); if (vl) vl.textContent = "NutriPath v" + BUILD + " · datos por 100 g · base local + Open Food Facts";
