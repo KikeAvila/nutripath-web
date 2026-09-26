@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=11" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=11" />
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="manifest" href="manifest.webmanifest?v=12" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=12" />
+  <link rel="stylesheet" href="styles.css?v=12" />
 </head>
 <body>
   <header class="topbar">
@@ -282,8 +282,11 @@
         <button class="icon-btn" data-close="modal-foto">✕</button>
       </div>
       <div class="foto-body">
-        <input id="foto-input" type="file" accept="image/*" capture="environment" hidden />
-        <button id="foto-pick" class="btn primary big">Elegir / hacer foto</button>
+        <input id="foto-cam" type="file" accept="image/*" capture="environment" hidden />
+        <input id="foto-input" type="file" accept="image/*" hidden />
+        <button id="foto-cam-pick" class="btn primary big">📷 Hacer foto ahora</button>
+        <button id="foto-pick" class="btn big">🖼️ Elegir de la galería</button>
+        <p class="nota">Puedes fotografiar la comida al momento, o subir luego una foto que hiciste antes (p.ej. por la noche).</p>
         <img id="foto-preview" class="foto-preview hidden" alt="comida" />
         <div id="foto-status" class="nota"></div>
         <div id="foto-result" class="results"></div>
@@ -300,7 +303,9 @@
       </div>
       <div class="foto-body">
         <video id="barras-video" class="barras-video hidden" playsinline></video>
-        <button id="barras-scan" class="btn primary big">Escanear con la cámara</button>
+        <input id="barras-file" type="file" accept="image/*" hidden />
+        <button id="barras-scan" class="btn primary big">📷 Escanear con la cámara</button>
+        <button id="barras-foto-pick" class="btn big">🖼️ Leer de una foto</button>
         <div class="or">— o —</div>
         <div class="search-row">
           <input id="barras-input" type="text" inputmode="numeric" placeholder="Escribe el código (EAN)" />
@@ -347,8 +352,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=11"></script>
-  <script src="foods.js?v=11"></script>
-  <script src="app.js?v=11"></script>
+  <script src="firebase-config.js?v=12"></script>
+  <script src="foods.js?v=12"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 11; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 12; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -696,6 +696,23 @@ function pararBarras() {
   if (barrasStream) { barrasStream.getTracks().forEach((t) => t.stop()); barrasStream = null; }
   $("barras-video").classList.add("hidden");
 }
+// Lee el código de barras de una FOTO ya hecha (galería), sin cámara en vivo.
+async function barrasDesdeFoto(file) {
+  pararBarras();
+  $("barras-status").textContent = "Leyendo el código de la foto…";
+  let url = null;
+  try {
+    const ZXing = await cargarZXing();
+    const reader = new ZXing.BrowserMultiFormatReader();
+    url = URL.createObjectURL(file);
+    const result = await reader.decodeFromImageUrl(url);
+    buscarBarras(result.getText());
+  } catch (e) {
+    $("barras-status").textContent = "No vi ningún código en esa foto. Prueba con una más nítida y de cerca, o escríbelo a mano.";
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
 async function buscarBarras(code) {
   $("barras-status").textContent = "Buscando " + code + "…";
   try {
@@ -902,11 +919,15 @@ function init() {
   // añadir a mano
   $("man-add").onclick = confirmarManual;
   document.querySelectorAll("#modal-manual [data-mang]").forEach((b) => b.onclick = () => { $("man-gramos").value = b.dataset.mang; });
-  // foto
+  // foto: hacer ahora (cámara) o elegir de la galería (una foto de antes)
+  $("foto-cam-pick").onclick = () => $("foto-cam").click();
   $("foto-pick").onclick = () => $("foto-input").click();
-  $("foto-input").addEventListener("change", (e) => { if (e.target.files[0]) analizarFoto(e.target.files[0]); });
-  // barras
+  $("foto-cam").addEventListener("change", (e) => { if (e.target.files[0]) analizarFoto(e.target.files[0]); e.target.value = ""; });
+  $("foto-input").addEventListener("change", (e) => { if (e.target.files[0]) analizarFoto(e.target.files[0]); e.target.value = ""; });
+  // barras: escanear en vivo, leer de una foto, o escribir el número
   $("barras-scan").onclick = escanearBarras;
+  $("barras-foto-pick").onclick = () => $("barras-file").click();
+  $("barras-file").addEventListener("change", (e) => { if (e.target.files[0]) barrasDesdeFoto(e.target.files[0]); e.target.value = ""; });
   $("barras-go").onclick = () => { const c = $("barras-input").value.trim(); if (c) buscarBarras(c); };
   // ejercicio
   $("ej-add").onclick = addEjercicio;
