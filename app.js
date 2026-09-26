@@ -493,7 +493,18 @@ async function llmAnthropic(input, maxTokens) {
 async function llmGemini(input, maxTokens) {
   const apiKey = localStorage.getItem("np_gemini_key");
   if (!apiKey) throw new Error("sin API key de Gemini");
-  const model = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
+  let model = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
+  try {
+    return await geminiCall(apiKey, model, input, maxTokens);
+  } catch (e) {
+    if (!/ 404/.test(String(e.message || e))) throw e; // solo si el modelo no existe
+    const bueno = await geminiElegirModelo(apiKey);     // descubre uno válido de esta cuenta
+    if (!bueno) throw e;
+    localStorage.setItem("np_gemini_model", bueno);
+    return await geminiCall(apiKey, bueno, input, maxTokens);
+  }
+}
+async function geminiCall(apiKey, model, input, maxTokens) {
   const parts = [{ text: input.text }];
   if (input.imageB64) parts.push({ inline_data: { mime_type: input.imageMime, data: input.imageB64 } });
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(apiKey);
@@ -506,6 +517,19 @@ async function llmGemini(input, maxTokens) {
   const data = await res.json();
   const cand = (data.candidates || [])[0] || {};
   return ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
+}
+// Lista los modelos disponibles para esta key y elige un "flash" que valga para imágenes.
+async function geminiElegirModelo(apiKey) {
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey));
+  if (!res.ok) return null;
+  const data = await res.json();
+  const disp = (data.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map((m) => m.name.replace(/^models\//, ""));
+  const prio = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"];
+  for (const p of prio) if (disp.includes(p)) return p;
+  const flash = disp.filter((n) => /flash/.test(n) && !/thinking|audio|image-generation/.test(n));
+  return flash[0] || disp[0] || null;
 }
 function extraerJSON(txt) {
   if (!txt) return null;
