@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 12; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 13; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -881,6 +881,11 @@ function switchView(v) {
 }
 function abrir(id) { $(id).classList.remove("hidden"); }
 function cerrar(id) { $(id).classList.add("hidden"); if (id === "modal-barras") pararBarras(); }
+function abrirAyuda() {
+  const el = $("kcal-left");
+  $("ayuda-ejemplo").textContent = (el && el.textContent !== "—" ? el.textContent + " kcal" : "Rellena tu perfil");
+  abrir("modal-ayuda");
+}
 
 // ================= TEMA =================
 function setTheme(t) { document.body.setAttribute("data-theme", t); localStorage.setItem("np_theme", t); $("theme-toggle").textContent = t === "dark" ? "☀️" : "🌙"; }
@@ -896,6 +901,8 @@ function init() {
   document.querySelectorAll(".tab").forEach((t) => t.onclick = () => switchView(t.dataset.view));
   document.querySelectorAll("[data-close]").forEach((b) => b.onclick = () => cerrar(b.dataset.close));
   $("theme-toggle").onclick = toggleTheme;
+  $("help-btn").onclick = abrirAyuda;
+  $("explica-btn").onclick = abrirAyuda;
 
   // día
   $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };

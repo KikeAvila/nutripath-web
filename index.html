@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=12" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=12" />
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="manifest" href="manifest.webmanifest?v=13" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=13" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">🥗 <span>NutriPath</span></div>
     <div class="top-actions">
+      <button id="help-btn" class="icon-btn" title="¿Cómo funciona?">ℹ️</button>
       <button id="theme-toggle" class="icon-btn" title="Tema claro/oscuro">🌙</button>
     </div>
   </header>
@@ -34,15 +35,16 @@
           </svg>
           <div class="ring-center">
             <div id="kcal-left" class="ring-num">0</div>
-            <div class="ring-cap">kcal restantes</div>
+            <div class="ring-cap">te quedan hoy</div>
           </div>
         </div>
         <div class="summary-side">
-          <div class="sum-row"><span>Objetivo</span><b id="sum-goal">— kcal</b></div>
-          <div class="sum-row"><span>Consumidas</span><b id="sum-eaten">0 kcal</b></div>
-          <div class="sum-row"><span>Ejercicio</span><b id="sum-exercise">0 kcal</b></div>
+          <div class="sum-row"><span>🎯 Meta del día</span><b id="sum-goal">— kcal</b></div>
+          <div class="sum-row"><span>🍽️ Ya comido</span><b id="sum-eaten">0 kcal</b></div>
+          <div class="sum-row"><span>🔥 Ejercicio (+)</span><b id="sum-exercise">0 kcal</b></div>
         </div>
       </div>
+      <button id="explica-btn" class="explica">ℹ️ ¿Qué significan estos números?</button>
 
       <div class="macros">
         <div class="macro">
@@ -212,6 +214,31 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: AYUDA / CÓMO FUNCIONA ================= -->
+  <div id="modal-ayuda" class="modal hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <b>ℹ️ ¿Cómo funciona NutriPath?</b>
+        <button class="icon-btn" data-close="modal-ayuda">✕</button>
+      </div>
+      <div class="ayuda-body">
+        <div class="ayuda-hero">
+          <div class="ayuda-num" id="ayuda-ejemplo">— kcal</div>
+          <div class="ayuda-cap">es lo que <b>aún puedes comer hoy</b> (el número grande del círculo)</div>
+        </div>
+        <p class="ayuda-formula">Te quedan = <b>Meta</b> + <b>Ejercicio</b> − <b>Ya comido</b></p>
+
+        <div class="ayuda-item"><span>🎯</span><div><b>Meta del día</b><p>Las calorías que puedes comer al día para tu objetivo (bajar, mantener o subir). Se calcula con tu perfil: edad, peso, altura, actividad.</p></div></div>
+        <div class="ayuda-item"><span>🍽️</span><div><b>Ya comido</b><p>La suma de todo lo que has apuntado hoy (desayuno, comida, cena, snacks).</p></div></div>
+        <div class="ayuda-item"><span>🔥</span><div><b>Ejercicio (+)</b><p>Si haces ejercicio, esas calorías se <b>suman</b> a tu meta: ese día puedes comer un poco más.</p></div></div>
+        <div class="ayuda-item"><span>⭕</span><div><b>El círculo / "te quedan hoy"</b><p><b>Verde</b> = todavía tienes margen para comer. <b>Rojo</b> = te has pasado de tu meta. No pasa nada por quedarte <b>±100 kcal</b>: no tiene que ser exacto, es una guía.</p></div></div>
+        <div class="ayuda-item"><span>📊</span><div><b>Barras de macros</b><p>Proteínas, carbohidratos y grasas que te convienen al día. Intenta acercarte, sobre todo a la <b>proteína</b>.</p></div></div>
+        <div class="ayuda-item"><span>⚖️</span><div><b>Peso y meta</b><p>En <b>Progreso</b> apuntas tu peso y ves si te acercas a tu <b>peso objetivo</b>. En <b>Perfil</b> defines la meta.</p></div></div>
+        <p class="nota">Consejo: apunta al menos las comidas grandes cada día. Con constancia, el peso baja aunque algún día te pases.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: PORCIÓN ================= -->
   <div id="modal-porcion" class="modal hidden">
     <div class="sheet small">
@@ -352,8 +379,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=12"></script>
-  <script src="foods.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="firebase-config.js?v=13"></script>
+  <script src="foods.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
