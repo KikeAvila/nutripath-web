@@ -4,6 +4,7 @@
 
 "use strict";
 
+const BUILD = 8; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -799,6 +800,28 @@ function init() {
   };
   modelSel.onchange = () => localStorage.setItem("np_model", modelSel.value);
   gModel.onchange = () => localStorage.setItem("np_gemini_model", gModel.value);
+  // Botón de diagnóstico: dice el error exacto o el modelo que funciona
+  $("a-key-test").onclick = async () => {
+    $("a-key-state").textContent = "Probando la conexión…";
+    try {
+      if (proveedorIA() === "gemini") {
+        const k = localStorage.getItem("np_gemini_key");
+        if (!k) { $("a-key-state").textContent = "Primero guarda la API key de Gemini."; return; }
+        const m = await geminiElegirModelo(k);
+        if (!m) { $("a-key-state").textContent = "❌ La key no devuelve modelos. Revisa que copiaste bien la clave (AIza…) y que sea de aistudio.google.com."; return; }
+        localStorage.setItem("np_gemini_model", m);
+        if (![].some.call(gModel.options, (o) => o.value === m)) gModel.add(new Option(m, m));
+        gModel.value = m;
+        const r = await geminiCall(k, m, { text: "Responde solo con la palabra OK." }, 10);
+        $("a-key-state").textContent = "✅ Gemini funciona con el modelo “" + m + "”. Respuesta: " + (r || "").trim();
+      } else {
+        const r = await llmAnthropic({ text: "Responde solo con la palabra OK." }, 10);
+        $("a-key-state").textContent = "✅ Claude funciona. Respuesta: " + (r || "").trim();
+      }
+    } catch (e) { $("a-key-state").textContent = "❌ Error: " + (e.message || e); }
+  };
+  // versión visible
+  const vl = $("version-line"); if (vl) vl.textContent = "NutriPath v" + BUILD + " · datos por 100 g · base local + Open Food Facts";
   $("export-data").onclick = () => {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "nutripath-datos.json"; a.click();

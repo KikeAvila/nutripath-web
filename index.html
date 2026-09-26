@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=7" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=7" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="manifest" href="manifest.webmanifest?v=8" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=8" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <header class="topbar">
@@ -170,6 +170,7 @@
           </label>
         </div>
         <button id="a-key-save" class="btn">Guardar</button>
+        <button id="a-key-test" class="btn">Probar conexión IA</button>
         <div id="a-key-state" class="nota"></div>
       </div>
       <div class="card">
@@ -182,7 +183,7 @@
         <button id="export-data" class="btn">Exportar mis datos</button>
         <button id="reset-day" class="btn danger">Borrar el día actual</button>
       </div>
-      <p class="version">NutriPath v1 · datos por 100 g · fuentes: base local + Open Food Facts</p>
+      <p class="version" id="version-line">NutriPath · datos por 100 g · fuentes: base local + Open Food Facts</p>
     </section>
   </main>
 
@@ -304,8 +305,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=7"></script>
-  <script src="foods.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="firebase-config.js?v=8"></script>
+  <script src="foods.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
