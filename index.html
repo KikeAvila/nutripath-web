@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=15" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=15" />
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="manifest" href="manifest.webmanifest?v=16" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=16" />
+  <link rel="stylesheet" href="styles.css?v=16" />
 </head>
 <body>
   <header class="topbar">
@@ -156,12 +156,14 @@
           <label class="fld"><span>API key de Gemini (empieza por AIza…)</span><input id="g-key" type="password" placeholder="AIza..." /></label>
           <label class="fld"><span>Modelo</span>
             <select id="g-model">
-              <option value="gemini-flash-latest">Flash (automático, recomendado)</option>
+              <option value="gemini-flash-latest">Flash (automático, gratis, recomendado)</option>
               <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
               <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
               <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-pro-latest">Pro (mejor calidad, más lento, de pago)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
             </select>
-            <p class="nota">Si el modelo no existe en tu cuenta, la app busca solo uno válido al pulsar “Probar conexión IA”.</p>
+            <p class="nota">Si el modelo no existe o no tienes acceso, la app vuelve sola a uno válido. Los <b>Pro</b> solo funcionan si tu <b>API key</b> tiene facturación activada (la suscripción de la app de Gemini NO cuenta).</p>
           </label>
         </div>
         <div id="prov-anthropic" class="hidden">
@@ -379,8 +381,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=15"></script>
-  <script src="foods.js?v=15"></script>
-  <script src="app.js?v=15"></script>
+  <script src="firebase-config.js?v=16"></script>
+  <script src="foods.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

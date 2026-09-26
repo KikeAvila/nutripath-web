@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 15; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 16; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
