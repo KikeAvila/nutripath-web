@@ -1,6 +1,6 @@
 /* Service worker — cachea la app para uso OFFLINE.
    deploy.py sube el número de CACHE en cada publicación para forzar la actualización. */
-const CACHE = "nutripath-v8";
+const CACHE = "nutripath-v9";
 const ASSETS = [
   "./",
   "index.html",

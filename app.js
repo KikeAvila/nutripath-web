@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 8; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 9; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -494,15 +494,27 @@ async function llmAnthropic(input, maxTokens) {
 async function llmGemini(input, maxTokens) {
   const apiKey = localStorage.getItem("np_gemini_key");
   if (!apiKey) throw new Error("sin API key de Gemini");
-  let model = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
+  const guardado = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
   try {
-    return await geminiCall(apiKey, model, input, maxTokens);
+    return await geminiCall(apiKey, guardado, input, maxTokens);
   } catch (e) {
     if (!/ 404/.test(String(e.message || e))) throw e; // solo si el modelo no existe
-    const bueno = await geminiElegirModelo(apiKey);     // descubre uno válido de esta cuenta
-    if (!bueno) throw e;
-    localStorage.setItem("np_gemini_model", bueno);
-    return await geminiCall(apiKey, bueno, input, maxTokens);
+    // El modelo guardado ya no vale: pregunta a la cuenta qué modelos tiene y prueba
+    // uno por uno hasta que alguno responda (guarda el que funcione).
+    const modelos = await geminiListarModelos(apiKey);
+    if (!modelos.length) {
+      throw new Error("Gemini: esta API key no tiene modelos disponibles. Revisa que la key sea de Google AI Studio (aistudio.google.com/apikey) y que la 'Generative Language API' esté activa.");
+    }
+    let ultimo = e;
+    for (const m of modelos) {
+      if (m === guardado) continue; // ya falló arriba
+      try {
+        const out = await geminiCall(apiKey, m, input, maxTokens);
+        localStorage.setItem("np_gemini_model", m); // recuérdalo para la próxima
+        return out;
+      } catch (e2) { ultimo = e2; if (!/ 404/.test(String(e2.message || e2))) throw e2; }
+    }
+    throw ultimo;
   }
 }
 async function geminiCall(apiKey, model, input, maxTokens) {
@@ -514,23 +526,45 @@ async function geminiCall(apiKey, model, input, maxTokens) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens || 300, temperature: 0.2 } }),
   });
-  if (!res.ok) throw new Error("Gemini " + res.status + (res.status === 400 || res.status === 403 ? " (key inválida)" : ""));
+  if (!res.ok) {
+    // Google manda en el cuerpo el motivo exacto (p.ej. "modelo no encontrado
+    // para v1beta"): lo enseñamos para poder diagnosticar de verdad.
+    const detalle = await geminiErrorTexto(res);
+    const pista = res.status === 400 || res.status === 403 ? " (key inválida o API sin activar)" : "";
+    throw new Error("Gemini " + res.status + pista + " [" + model + "]" + (detalle ? ": " + detalle : ""));
+  }
   const data = await res.json();
   const cand = (data.candidates || [])[0] || {};
   return ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
 }
-// Lista los modelos disponibles para esta key y elige un "flash" que valga para imágenes.
-async function geminiElegirModelo(apiKey) {
+async function geminiErrorTexto(res) {
+  try {
+    const j = await res.clone().json();
+    return ((j.error || {}).message || "").slice(0, 160);
+  } catch (_) {
+    try { return (await res.text()).slice(0, 160); } catch (__) { return ""; }
+  }
+}
+// Devuelve los modelos de esta cuenta que sirven para generateContent, ordenados
+// por preferencia (flash primero). Lista vacía si la key no tiene ninguno.
+async function geminiListarModelos(apiKey) {
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(apiKey));
-  if (!res.ok) return null;
+  if (!res.ok) return [];
   const data = await res.json();
   const disp = (data.models || [])
     .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
-    .map((m) => m.name.replace(/^models\//, ""));
-  const prio = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"];
-  for (const p of prio) if (disp.includes(p)) return p;
-  const flash = disp.filter((n) => /flash/.test(n) && !/thinking|audio|image-generation/.test(n));
-  return flash[0] || disp[0] || null;
+    .map((m) => m.name.replace(/^models\//, ""))
+    .filter((n) => !/embedding|aqa|imagen|veo|tts|audio|image-generation/.test(n));
+  const prio = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"];
+  const orden = [];
+  for (const p of prio) if (disp.includes(p) && !orden.includes(p)) orden.push(p);
+  for (const n of disp) if (/flash/.test(n) && !orden.includes(n)) orden.push(n);
+  for (const n of disp) if (!orden.includes(n)) orden.push(n);
+  return orden;
+}
+// Compat: el diagnóstico usa geminiElegirModelo (un solo modelo).
+async function geminiElegirModelo(apiKey) {
+  return (await geminiListarModelos(apiKey))[0] || null;
 }
 function extraerJSON(txt) {
   if (!txt) return null;
