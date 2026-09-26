@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 23; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 24; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -1347,6 +1347,11 @@ function init() {
   // perfil
   $("p-guardar").onclick = guardarPerfil;
   $("p-login").onclick = entrarUsuario;
+  $("p-pin-eye").onclick = () => {
+    const inp = $("p-pin"), ocultar = inp.type === "password";
+    inp.type = ocultar ? "text" : "password";
+    $("p-pin-eye").textContent = ocultar ? "🙈" : "👁️";
+  };
   // progreso
   $("peso-save").onclick = guardarPeso;
 
