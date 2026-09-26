@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=5" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=5" />
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="manifest" href="manifest.webmanifest?v=6" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=6" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <header class="topbar">
@@ -153,8 +153,9 @@
           <label class="fld"><span>API key de Gemini (empieza por AIza…)</span><input id="g-key" type="password" placeholder="AIza..." /></label>
           <label class="fld"><span>Modelo</span>
             <select id="g-model">
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (rápido y gratis)</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (mejor)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (recomendado, gratis)</option>
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (rápido)</option>
             </select>
           </label>
         </div>
@@ -303,8 +304,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=5"></script>
-  <script src="foods.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="firebase-config.js?v=6"></script>
+  <script src="foods.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

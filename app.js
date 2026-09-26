@@ -493,7 +493,7 @@ async function llmAnthropic(input, maxTokens) {
 async function llmGemini(input, maxTokens) {
   const apiKey = localStorage.getItem("np_gemini_key");
   if (!apiKey) throw new Error("sin API key de Gemini");
-  const model = localStorage.getItem("np_gemini_model") || "gemini-2.0-flash";
+  const model = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
   const parts = [{ text: input.text }];
   if (input.imageB64) parts.push({ inline_data: { mime_type: input.imageMime, data: input.imageB64 } });
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(apiKey);
@@ -760,7 +760,7 @@ function init() {
   if (localStorage.getItem("np_key")) keyIn.placeholder = "•••• guardada ••••";
   if (localStorage.getItem("np_gemini_key")) gKey.placeholder = "•••• guardada ••••";
   modelSel.value = localStorage.getItem("np_model") || "claude-sonnet-4-6";
-  gModel.value = localStorage.getItem("np_gemini_model") || "gemini-2.0-flash";
+  gModel.value = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
   prov.onchange = () => { localStorage.setItem("np_provider", prov.value); togProv(); estadoIA(); };
   $("a-key-save").onclick = () => {
     localStorage.setItem("np_provider", prov.value);
