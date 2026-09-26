@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 24; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 25; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -312,18 +312,30 @@ function guardarPerfil() {
   actualizarEstadoNube();
 }
 // "Entrar / cargar mi usuario" en un dispositivo nuevo: solo pide nombre + PIN.
-function entrarUsuario() {
+function pLoginMsg(txt) { const el = $("p-login-state"); if (el) el.innerHTML = txt; }
+async function entrarUsuario() {
   const nombre = $("p-nombre").value.trim(), pin = $("p-pin").value.trim();
-  if (!nombre || !/^\d{4}$/.test(pin)) { toast("Escribe tu nombre y un PIN de 4 cifras"); return; }
-  if (!cloudReady()) { toast("Sin conexión a la nube ahora mismo"); return; }
-  S.perfil.nombre = nombre; S.perfil.pin = pin;
-  S.cloudTs = 0; // forzar que gane la copia de la nube (cargar, no subir)
-  toast("Cargando tu usuario…");
-  cloudLogin(nombre, pin).then((ok) => {
-    if (ok) { renderPerfil(); renderDiario(); toast("Usuario cargado ☁️"); }
-    else toast("No pude entrar (revisa el PIN)");
+  if (!nombre || !/^\d{4}$/.test(pin)) { toast("Escribe tu nombre y un PIN de 4 cifras"); pLoginMsg("Escribe tu nombre y un PIN de 4 cifras."); return; }
+  if (!cloudReady()) { pLoginMsg("⚠️ Sin conexión a la nube ahora mismo. Reintenta con internet."); return; }
+  const key = cloudKey(nombre);
+  pLoginMsg("Conectando…");
+  try {
+    const snap = await window._db.collection("salud_usuarios").doc(key).get();
+    if (snap.exists && (((snap.data() || {}).pin) || "") !== pin) {
+      pLoginMsg("❌ El <b>PIN no coincide</b> con el de “" + esc(nombre) + "”. Míralo con 👁️ en tu otro dispositivo.");
+      return;
+    }
+    S.perfil.nombre = nombre; S.perfil.pin = pin; S.cloudTs = 0;
+    const ok = await cloudLogin(nombre, pin);
+    if (ok) { renderPerfil(); renderDiario(); pLoginMsg(snap.exists ? "✅ Usuario cargado." : "✅ Usuario creado en la nube."); toast("Listo ☁️"); }
+    else pLoginMsg("No pude conectar. Reintenta.");
     actualizarEstadoNube();
-  });
+  } catch (e) {
+    const permiso = (e && (e.code === "permission-denied")) || /permission|insufficient|PERMISSION_DENIED/i.test(String(e && (e.message || e)));
+    if (permiso) pLoginMsg("⚠️ <b>Falta permiso en Firebase</b> para NutriPath. No es tu PIN. Hay que activar las <b>reglas de Firestore</b> (colección <code>salud_usuarios</code>). Avísame y te paso los 3 pasos exactos.");
+    else pLoginMsg("Error de conexión: " + esc(String((e && (e.code || e.message)) || e)));
+    console.warn("entrarUsuario:", e);
+  }
 }
 function mostrarPlan(plan, p) {
   $("perfil-resultado").classList.remove("hidden");
