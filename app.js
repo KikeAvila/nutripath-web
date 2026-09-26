@@ -289,7 +289,7 @@ function buscarLive() {
     html += resHTML(i, f.n + hab, `${g} g · P${round(f.p * g / 100, 0)} C${round(f.c * g / 100, 0)} G${round(f.f * g / 100, 0)}`, kcal, "loc");
   });
   // opción IA por texto (platos compuestos / lo que sea)
-  if (q.length > 2 && localStorage.getItem("np_key")) {
+  if (q.length > 2 && iaDisponible()) {
     html += `<div class="res ai" data-ia="1"><div class="r-main"><span class="r-name">🤖 Calcular “${esc(q)}” con IA</span>
       <span class="r-sub">Estima la porción y las calorías del plato descrito</span></div><span class="r-kcal">IA</span></div>`;
   }
@@ -397,7 +397,7 @@ async function estimarTextoIA(texto) {
       `Si no se indica cantidad, usa una porción media típica española. ` +
       `Responde SOLO con JSON válido, sin texto extra ni markdown: ` +
       `{"nombre":"...","gramos":number,"kcal":number,"prot":number,"carb":number,"grasa":number}`;
-    const txt = await llmText([{ role: "user", content: prompt }], 300);
+    const txt = await llmAsk({ text: prompt }, 300);
     const j = extraerJSON(txt);
     if (!j || !j.kcal) throw new Error("sin datos");
     const g = +j.gramos || 100;
@@ -411,7 +411,7 @@ async function estimarTextoIA(texto) {
 // ================= IA: FOTO =================
 function abrirFoto() { $("foto-preview").classList.add("hidden"); $("foto-result").innerHTML = ""; $("foto-status").textContent = ""; abrir("modal-foto"); }
 async function analizarFoto(file) {
-  if (!localStorage.getItem("np_key")) { toast("Pon tu API key en Ajustes"); switchView("ajustes"); return; }
+  if (!iaDisponible()) { toast("Configura la IA en Ajustes (Gemini es gratis)"); cerrar("modal-foto"); switchView("ajustes"); return; }
   const dataUrl = await leerImagen(file);
   $("foto-preview").src = dataUrl; $("foto-preview").classList.remove("hidden");
   $("foto-status").textContent = "🤖 Analizando la foto…"; $("foto-result").innerHTML = "";
@@ -421,10 +421,7 @@ async function analizarFoto(file) {
     const prompt = `Eres nutricionista. Identifica la comida de la foto y estima la porción visible. ` +
       `Responde SOLO con JSON válido, sin texto extra ni markdown: ` +
       `{"nombre":"...","gramos":number,"kcal":number,"prot":number,"carb":number,"grasa":number}. Usa porciones medias españolas.`;
-    const txt = await llmText([{ role: "user", content: [
-      { type: "image", source: { type: "base64", media_type: media, data: b64 } },
-      { type: "text", text: prompt },
-    ] }], 300);
+    const txt = await llmAsk({ text: prompt, imageB64: b64, imageMime: media }, 300);
     const j = extraerJSON(txt);
     if (!j || !j.kcal) throw new Error("no reconocida");
     $("foto-status").textContent = "";
@@ -461,11 +458,24 @@ function leerImagen(file) {
   });
 }
 
-// ================= LLAMADA A CLAUDE =================
-async function llmText(messages, maxTokens) {
+// ================= LLAMADA A LA IA (Gemini gratis o Anthropic) =================
+function proveedorIA() {
+  return localStorage.getItem("np_provider") || (localStorage.getItem("np_gemini_key") ? "gemini" : (localStorage.getItem("np_key") ? "anthropic" : "gemini"));
+}
+function iaDisponible() {
+  return proveedorIA() === "gemini" ? !!localStorage.getItem("np_gemini_key") : !!localStorage.getItem("np_key");
+}
+// Interfaz común: input = { text, imageB64?, imageMime? }
+async function llmAsk(input, maxTokens) {
+  return proveedorIA() === "gemini" ? llmGemini(input, maxTokens) : llmAnthropic(input, maxTokens);
+}
+async function llmAnthropic(input, maxTokens) {
   const apiKey = localStorage.getItem("np_key");
-  if (!apiKey) throw new Error("sin API key");
+  if (!apiKey) throw new Error("sin API key de Claude");
   const model = localStorage.getItem("np_model") || "claude-sonnet-4-6";
+  const content = [];
+  if (input.imageB64) content.push({ type: "image", source: { type: "base64", media_type: input.imageMime, data: input.imageB64 } });
+  content.push({ type: "text", text: input.text });
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -474,11 +484,28 @@ async function llmText(messages, maxTokens) {
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
     },
-    body: JSON.stringify({ model, max_tokens: maxTokens || 300, messages }),
+    body: JSON.stringify({ model, max_tokens: maxTokens || 300, messages: [{ role: "user", content }] }),
   });
-  if (!res.ok) { const e = await res.text().catch(() => ""); throw new Error("API " + res.status + (res.status === 401 ? " (key inválida)" : "")); }
+  if (!res.ok) throw new Error("Claude " + res.status + (res.status === 401 ? " (key/crédito)" : ""));
   const data = await res.json();
   return (data.content || []).map((b) => b.text || "").join("");
+}
+async function llmGemini(input, maxTokens) {
+  const apiKey = localStorage.getItem("np_gemini_key");
+  if (!apiKey) throw new Error("sin API key de Gemini");
+  const model = localStorage.getItem("np_gemini_model") || "gemini-2.0-flash";
+  const parts = [{ text: input.text }];
+  if (input.imageB64) parts.push({ inline_data: { mime_type: input.imageMime, data: input.imageB64 } });
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(apiKey);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens || 300, temperature: 0.2 } }),
+  });
+  if (!res.ok) throw new Error("Gemini " + res.status + (res.status === 400 || res.status === 403 ? " (key inválida)" : ""));
+  const data = await res.json();
+  const cand = (data.candidates || [])[0] || {};
+  return ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
 }
 function extraerJSON(txt) {
   if (!txt) return null;
@@ -717,17 +744,37 @@ function init() {
   // progreso
   $("peso-save").onclick = guardarPeso;
 
-  // ajustes
-  const keyIn = $("a-key"), modelSel = $("a-model");
-  if (localStorage.getItem("np_key")) { keyIn.placeholder = "•••• guardada ••••"; $("a-key-state").textContent = "API key guardada en este dispositivo ✅"; }
+  // ajustes — IA con dos proveedores (Gemini gratis / Anthropic)
+  const keyIn = $("a-key"), modelSel = $("a-model"), gKey = $("g-key"), gModel = $("g-model"), prov = $("a-provider");
+  prov.value = localStorage.getItem("np_provider") || (localStorage.getItem("np_key") && !localStorage.getItem("np_gemini_key") ? "anthropic" : "gemini");
+  function togProv() {
+    $("prov-gemini").classList.toggle("hidden", prov.value !== "gemini");
+    $("prov-anthropic").classList.toggle("hidden", prov.value !== "anthropic");
+  }
+  function estadoIA() {
+    $("a-key-state").textContent = iaDisponible()
+      ? "IA lista ✅ (" + (proveedorIA() === "gemini" ? "Gemini" : "Claude") + ")"
+      : "Sin IA configurada: el buscador y el código de barras funcionan gratis igualmente.";
+  }
+  togProv(); estadoIA();
+  if (localStorage.getItem("np_key")) keyIn.placeholder = "•••• guardada ••••";
+  if (localStorage.getItem("np_gemini_key")) gKey.placeholder = "•••• guardada ••••";
   modelSel.value = localStorage.getItem("np_model") || "claude-sonnet-4-6";
+  gModel.value = localStorage.getItem("np_gemini_model") || "gemini-2.0-flash";
+  prov.onchange = () => { localStorage.setItem("np_provider", prov.value); togProv(); estadoIA(); };
   $("a-key-save").onclick = () => {
-    const k = keyIn.value.trim(); if (k) localStorage.setItem("np_key", k);
+    localStorage.setItem("np_provider", prov.value);
+    const a = keyIn.value.trim(); if (a) localStorage.setItem("np_key", a);
+    const g = gKey.value.trim(); if (g) localStorage.setItem("np_gemini_key", g);
     localStorage.setItem("np_model", modelSel.value);
-    keyIn.value = ""; keyIn.placeholder = "•••• guardada ••••";
-    $("a-key-state").textContent = "Guardado ✅"; toast("IA configurada");
+    localStorage.setItem("np_gemini_model", gModel.value);
+    keyIn.value = ""; gKey.value = "";
+    if (localStorage.getItem("np_key")) keyIn.placeholder = "•••• guardada ••••";
+    if (localStorage.getItem("np_gemini_key")) gKey.placeholder = "•••• guardada ••••";
+    estadoIA(); toast("IA configurada");
   };
   modelSel.onchange = () => localStorage.setItem("np_model", modelSel.value);
+  gModel.onchange = () => localStorage.setItem("np_gemini_model", gModel.value);
   $("export-data").onclick = () => {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "nutripath-datos.json"; a.click();
