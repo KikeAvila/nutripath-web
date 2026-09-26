@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 17; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 18; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -476,7 +476,11 @@ async function analizarFoto(file) {
   try {
     const b64 = dataUrl.split(",")[1];
     const media = (dataUrl.match(/data:(image\/[a-z]+);/) || [])[1] || "image/jpeg";
-    const prompt = `Eres nutricionista. Identifica la comida de la foto y estima la porción visible. ` +
+    const prompt = `Eres nutricionista. La foto puede ser (a) un plato/bol de comida o (b) un producto envasado. ` +
+      `Si es comida servida, identifícala y estima la porción visible. ` +
+      `Si es un producto envasado, identifica el producto (con la marca si se ve) y, si se lee la etiqueta nutricional, usa esos valores; ` +
+      `si no se lee, estima según el tipo de producto. Da los valores de UNA ración normal. ` +
+      `Si hay varios productos, elige el más destacado. ` +
       `Responde SOLO con JSON válido, sin texto extra ni markdown: ` +
       `{"nombre":"...","gramos":number,"kcal":number,"prot":number,"carb":number,"grasa":number}. Usa porciones medias españolas.`;
     const txt = await llmAsk({ text: prompt, imageB64: b64, imageMime: media }, 800);
