@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 14; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 15; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -455,9 +455,9 @@ async function estimarTextoIA(texto) {
       `Si no se indica cantidad, usa una porción media típica española. ` +
       `Responde SOLO con JSON válido, sin texto extra ni markdown: ` +
       `{"nombre":"...","gramos":number,"kcal":number,"prot":number,"carb":number,"grasa":number}`;
-    const txt = await llmAsk({ text: prompt }, 300);
+    const txt = await llmAsk({ text: prompt }, 600);
     const j = extraerJSON(txt);
-    if (!j || !j.kcal) throw new Error("sin datos");
+    if (!j || !j.kcal) throw new Error(txt ? "sin datos" : "respuesta vacía");
     const g = +j.gramos || 100;
     const food = { n: j.nombre || texto, kcal: j.kcal * 100 / g, p: (j.prot || 0) * 100 / g, c: (j.carb || 0) * 100 / g, f: (j.grasa || 0) * 100 / g };
     abrirPorcion(food, g);
@@ -479,9 +479,9 @@ async function analizarFoto(file) {
     const prompt = `Eres nutricionista. Identifica la comida de la foto y estima la porción visible. ` +
       `Responde SOLO con JSON válido, sin texto extra ni markdown: ` +
       `{"nombre":"...","gramos":number,"kcal":number,"prot":number,"carb":number,"grasa":number}. Usa porciones medias españolas.`;
-    const txt = await llmAsk({ text: prompt, imageB64: b64, imageMime: media }, 300);
+    const txt = await llmAsk({ text: prompt, imageB64: b64, imageMime: media }, 800);
     const j = extraerJSON(txt);
-    if (!j || !j.kcal) throw new Error("no reconocida");
+    if (!j || !j.kcal) throw new Error(txt ? "no reconocida" : "respuesta vacía");
     $("foto-status").textContent = "";
     const g = +j.gramos || 100;
     const el = document.createElement("div");
@@ -611,25 +611,40 @@ async function geminiProbar(apiKey) {
   }
   throw ultimo || new Error("Ningún modelo de la cuenta respondió (puede estar saturado; prueba en un minuto).");
 }
-async function geminiCall(apiKey, model, input, maxTokens) {
+async function geminiCall(apiKey, model, input, maxTokens, conThinking) {
   const parts = [{ text: input.text }];
   if (input.imageB64) parts.push({ inline_data: { mime_type: input.imageMime, data: input.imageB64 } });
+  const gen = { maxOutputTokens: maxTokens || 800, temperature: 0.2 };
+  // Los modelos "flash" 2.5/3.x piensan por defecto y se comen los tokens de la
+  // respuesta (devuelven vacío). Lo desactivamos; si el modelo no lo soporta (2.0),
+  // reintentamos sin el campo (ver más abajo).
+  if (conThinking !== true) gen.thinkingConfig = { thinkingBudget: 0 };
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(apiKey);
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens || 300, temperature: 0.2 } }),
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: gen }),
   });
   if (!res.ok) {
     // Google manda en el cuerpo el motivo exacto (p.ej. "modelo no encontrado
     // para v1beta"): lo enseñamos para poder diagnosticar de verdad.
     const detalle = await geminiErrorTexto(res);
+    // Si el modelo no admite thinkingConfig, reintenta sin desactivar el pensamiento.
+    if (res.status === 400 && conThinking !== true && /thinking|thought/i.test(detalle)) {
+      return geminiCall(apiKey, model, input, maxTokens, true);
+    }
     const pista = res.status === 400 || res.status === 403 ? " (key inválida o API sin activar)" : "";
     throw new Error("Gemini " + res.status + pista + " [" + model + "]" + (detalle ? ": " + detalle : ""));
   }
   const data = await res.json();
   const cand = (data.candidates || [])[0] || {};
-  return ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
+  const out = ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
+  // Respuesta vacía porque el pensamiento consumió el presupuesto: reintenta con
+  // pensamiento activado y más tokens (así al menos responde).
+  if (!out && cand.finishReason === "MAX_TOKENS" && conThinking !== true) {
+    return geminiCall(apiKey, model, input, Math.max(2000, (maxTokens || 800) * 2), true);
+  }
+  return out;
 }
 async function geminiErrorTexto(res) {
   try {
