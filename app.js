@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 18; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 19; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -38,6 +38,7 @@ function nuevoEstado() {
     pesos: {},         // iso -> kg
     porciones: {},     // nombreLower -> gramos habituales (última porción usada)
     recientes: [],     // alimentos usados recientemente (per 100 g), el más nuevo primero
+    social: { grupo: null }, // grupo familiar (código) para la parte social
     cloudTs: 0,
   };
 }
@@ -47,6 +48,7 @@ function loadState() {
   S.perfil = Object.assign(nuevoEstado().perfil, S.perfil || {});
   S.dias = S.dias || {}; S.pesos = S.pesos || {};
   S.porciones = S.porciones || {}; S.recientes = S.recientes || [];
+  S.social = S.social || { grupo: null };
 }
 // gramos a proponer: prioriza la cantidad/porción escrita; si no, tu porción
 // habitual recordada para ese alimento; si no, la estimación por defecto.
@@ -893,6 +895,7 @@ function cloudGuardarYa() {
   S.cloudTs = Date.now();
   cloudDoc.set({ pin: (S.perfil && S.perfil.pin) || "", data: JSON.stringify(S), updatedAt: S.cloudTs })
     .catch((e) => console.warn("nube:", e));
+  publicarResumen(); // mantén al día el resumen visible por el grupo familiar
 }
 function cloudGuardar() {
   if (!cloudReady() || !cloudDoc || cloudAplicando) return;
@@ -919,12 +922,155 @@ async function cloudLogin(nombre, pin) {
   } catch (e) { console.warn("cloudLogin:", e); return false; }
 }
 
+// ================= SOCIAL (grupo familiar) =================
+// Modelo en Firestore:
+//   salud_grupos/{codigo} = { nombre, creado, miembros: { claveUsuario: nombre } }
+//   salud_social/{claveUsuario} = resumen público (kcal de hoy, meta, peso, racha…)
+function socialLogged() { return cloudReady() && S.perfil.nombre && /^\d{4}$/.test(S.perfil.pin || ""); }
+function generarCodigo() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 6; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+function rachaDias() {
+  let n = 0, i = 0;
+  const hoy = hoyISO(), dHoy = S.dias[hoy];
+  const hoyTiene = dHoy && MEALS.some((m) => (dHoy.comidas[m] || []).length);
+  if (!hoyTiene) i = 1; // si hoy aún no has apuntado, cuenta desde ayer
+  for (; i < 400; i++) {
+    const iso = hoyISO(new Date(Date.now() - i * 864e5));
+    const d = S.dias[iso];
+    if (d && MEALS.some((m) => (d.comidas[m] || []).length)) n++; else break;
+  }
+  return n;
+}
+function miResumenSocial() {
+  const hoy = hoyISO(), d = S.dias[hoy];
+  let kcal = 0, ej = 0;
+  if (d) { MEALS.forEach((m) => (d.comidas[m] || []).forEach((it) => kcal += +it.kcal || 0)); (d.ejercicio || []).forEach((e) => ej += +e.kcal || 0); }
+  const isos = Object.keys(S.pesos).sort();
+  const pesoActual = isos.length ? S.pesos[isos[isos.length - 1]] : (S.perfil.peso || null);
+  return {
+    nombre: S.perfil.nombre || "", hoy, kcalHoy: Math.round(kcal), ejHoy: Math.round(ej),
+    metaKcal: (S.plan && S.plan.kcal) || 0, pesoActual: pesoActual, pesoObjetivo: S.perfil.pesoObjetivo || null,
+    racha: rachaDias(), ultimo: Date.now(),
+  };
+}
+function publicarResumen() {
+  if (!cloudReady() || !S.social || !S.social.grupo) return;
+  const key = cloudKey(S.perfil.nombre); if (!key) return;
+  window._db.collection("salud_social").doc(key).set(miResumenSocial()).catch((e) => console.warn("social:", e));
+}
+async function crearGrupo() {
+  if (!socialLogged()) { toast("Primero pon nombre y PIN en Perfil"); switchView("perfil"); return; }
+  const codigo = generarCodigo(), key = cloudKey(S.perfil.nombre);
+  try {
+    const miembros = {}; miembros[key] = S.perfil.nombre || key;
+    await window._db.collection("salud_grupos").doc(codigo).set({ nombre: "Grupo de " + (S.perfil.nombre || ""), creado: Date.now(), miembros: miembros });
+    S.social = { grupo: codigo }; saveState(); publicarResumen();
+    toast("Grupo creado ✅"); renderSocial();
+  } catch (e) { toast("No se pudo crear el grupo"); console.warn(e); }
+}
+async function unirseGrupo() {
+  if (!socialLogged()) { toast("Primero pon nombre y PIN en Perfil"); switchView("perfil"); return; }
+  const codigo = (($("social-code-input") || {}).value || "").trim().toUpperCase();
+  if (!codigo) { toast("Escribe el código del grupo"); return; }
+  const key = cloudKey(S.perfil.nombre);
+  try {
+    const ref = window._db.collection("salud_grupos").doc(codigo);
+    const snap = await ref.get();
+    if (!snap.exists) { toast("No existe ningún grupo con ese código"); return; }
+    const upd = {}; upd["miembros." + key] = S.perfil.nombre || key;
+    await ref.update(upd);
+    S.social = { grupo: codigo }; saveState(); publicarResumen();
+    toast("Te has unido al grupo ✅"); renderSocial();
+  } catch (e) { toast("No se pudo unir (revisa el código)"); console.warn(e); }
+}
+async function salirGrupo() {
+  if (!S.social || !S.social.grupo) return;
+  if (!confirm("¿Salir del grupo familiar?")) return;
+  const codigo = S.social.grupo, key = cloudKey(S.perfil.nombre);
+  try {
+    const upd = {}; upd["miembros." + key] = firebase.firestore.FieldValue.delete();
+    await window._db.collection("salud_grupos").doc(codigo).update(upd);
+  } catch (e) { console.warn(e); }
+  S.social = { grupo: null }; saveState(); toast("Has salido del grupo"); renderSocial();
+}
+function compartirGrupo() {
+  const codigo = S.social.grupo;
+  const texto = "Únete a mi grupo en NutriPath con el código " + codigo + ": https://kikeavila.github.io/nutripath-web/";
+  if (navigator.share) { navigator.share({ text: texto }).catch(() => {}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(texto); toast("Invitación copiada ✅"); }
+  else { toast("Código: " + codigo); }
+}
+function tarjetaMiembro(r) {
+  const meta = r.metaKcal || 0, kcal = r.kcalHoy || 0, ej = r.ejHoy || 0;
+  const restantes = meta ? Math.round(meta + ej - kcal) : null;
+  const pct = meta ? Math.min(100, Math.round((kcal / (meta + ej)) * 100)) : 0;
+  const rojo = meta && kcal > meta + ej;
+  const peso = r.pesoActual != null ? r.pesoActual + " kg" : "—";
+  const metaPeso = r.pesoObjetivo != null ? " → 🎯 " + r.pesoObjetivo + " kg" : "";
+  return `<div class="card social-card">
+    <div class="social-top"><b>${esc(r.nombre || "—")}</b>${r.racha ? `<span class="racha">🔥 ${r.racha} días</span>` : ""}</div>
+    <div class="social-bar"><i style="width:${pct}%;${rojo ? "background:var(--danger)" : ""}"></i></div>
+    <div class="social-row"><span>🍽️ ${kcal} / ${meta || "—"} kcal</span><span>${restantes != null ? (restantes >= 0 ? restantes + " restantes" : Math.abs(restantes) + " pasado") : ""}</span></div>
+    <div class="social-row"><span>⚖️ ${peso}${metaPeso}</span></div>
+  </div>`;
+}
+async function cargarMiembros() {
+  const cont = $("social-members"); if (!cont) return;
+  try {
+    const snap = await window._db.collection("salud_grupos").doc(S.social.grupo).get();
+    if (!snap.exists) { cont.innerHTML = `<p class="nota">Este grupo ya no existe. Crea otro o únete con un código.</p>`; S.social = { grupo: null }; saveState(); return; }
+    const miembros = (snap.data() || {}).miembros || {};
+    const keys = Object.keys(miembros);
+    if (!keys.length) { cont.innerHTML = `<p class="nota">Aún no hay miembros.</p>`; return; }
+    const datos = await Promise.all(keys.map((k) =>
+      window._db.collection("salud_social").doc(k).get()
+        .then((s) => s.exists ? s.data() : { nombre: miembros[k] })
+        .catch(() => ({ nombre: miembros[k] }))
+    ));
+    datos.sort((a, b) => (b.racha || 0) - (a.racha || 0));
+    cont.innerHTML = datos.map(tarjetaMiembro).join("");
+  } catch (e) {
+    cont.innerHTML = `<p class="nota">No pude cargar el grupo. Puede faltar permiso en las reglas de Firestore (colecciones salud_grupos / salud_social).</p>`;
+    console.warn("cargarMiembros:", e);
+  }
+}
+function renderSocial() {
+  const cont = $("social-content"); if (!cont) return;
+  if (!socialLogged()) {
+    cont.innerHTML = `<div class="card"><h3 class="card-h">👨‍👩‍👧 Social</h3>
+      <p class="nota">Para compartir el progreso con tu familia, primero pon tu <b>nombre</b> y un <b>PIN de 4 cifras</b> en <b>Objetivo</b> (se activa la nube).</p>
+      <button class="btn primary" id="social-go-perfil">Ir a Perfil</button></div>`;
+    const b = $("social-go-perfil"); if (b) b.onclick = () => switchView("perfil");
+    return;
+  }
+  if (!S.social || !S.social.grupo) {
+    cont.innerHTML = `
+      <div class="card"><h3 class="card-h">👨‍👩‍👧 Grupo familiar</h3>
+        <p class="nota">Crea un grupo y comparte el código con tu familia (p. ej. con tu hijo). Cada uno verá el progreso de los demás: calorías de hoy, peso y racha.</p>
+        <button class="btn primary big" id="social-crear">Crear un grupo</button></div>
+      <div class="card"><h3 class="card-h">Unirse a un grupo</h3>
+        <div class="search-row"><input id="social-code-input" placeholder="Código (ej: AB12CD)" /><button class="btn" id="social-unir">Unirse</button></div></div>`;
+    $("social-crear").onclick = crearGrupo; $("social-unir").onclick = unirseGrupo;
+    return;
+  }
+  cont.innerHTML = `
+    <div class="card"><div class="social-head">
+      <div><h3 class="card-h">👨‍👩‍👧 Tu grupo</h3><p class="nota">Código para invitar: <b class="social-code">${esc(S.social.grupo)}</b></p></div>
+      <button class="btn" id="social-share" style="width:auto;margin:0">Compartir</button>
+    </div></div>
+    <div id="social-members"><p class="nota">Cargando miembros…</p></div>
+    <button class="btn danger" id="social-salir">Salir del grupo</button>`;
+  $("social-share").onclick = compartirGrupo;
+  $("social-salir").onclick = salirGrupo;
+  cargarMiembros();
+}
+
 // ================= NAVEGACIÓN / MODALES =================
 function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.remove("active"));
   $("view-" + v).classList.add("active");
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === v));
   if (v === "progreso") renderProgreso();
+  if (v === "social") renderSocial();
   if (v === "perfil") renderPerfil();
   if (v === "ajustes") actualizarEstadoNube();
   window.scrollTo(0, 0);

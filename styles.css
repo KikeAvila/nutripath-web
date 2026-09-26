@@ -203,6 +203,18 @@ h2,h3{margin:0; letter-spacing:-.01em}
 .ayuda-item b{font-size:14px}
 .ayuda-item p{font-size:12.5px; color:var(--muted); line-height:1.5; margin:3px 0 0}
 
+/* Social (grupo familiar) */
+.social-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.social-code{font-size:16px; letter-spacing:2px; color:var(--brand-d)}
+.social-card{padding:14px 16px}
+.social-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+.social-top b{font-size:16px}
+.racha{font-size:12px; font-weight:700; color:var(--carb)}
+.social-bar{height:9px; background:var(--line); border-radius:6px; overflow:hidden; margin-bottom:8px}
+.social-bar i{display:block; height:100%; background:linear-gradient(90deg,var(--brand),var(--brand2)); border-radius:6px; transition:width .5s}
+.social-row{display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-top:3px}
+.social-row span:first-child{color:var(--ink); font-weight:600}
+
 /* Botón copiar/repetir día */
 .copiar-dia{margin-top:2px; margin-bottom:14px; border-style:dashed; color:var(--muted); font-weight:700}
 .check-line{display:flex; align-items:center; gap:8px; flex-direction:row; font-size:14px; color:var(--ink)}

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=18" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=18" />
-  <link rel="stylesheet" href="styles.css?v=18" />
+  <link rel="manifest" href="manifest.webmanifest?v=19" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=19" />
+  <link rel="stylesheet" href="styles.css?v=19" />
 </head>
 <body>
   <header class="topbar">
@@ -87,6 +87,12 @@
         <h3 class="card-h">Resumen semanal (kcal)</h3>
         <canvas id="kcal-chart" height="160"></canvas>
       </div>
+    </section>
+
+    <!-- ================= SOCIAL ================= -->
+    <section id="view-social" class="view">
+      <h2 class="view-title">Social</h2>
+      <div id="social-content"></div>
     </section>
 
     <!-- ================= PERFIL ================= -->
@@ -236,6 +242,7 @@
   <nav class="bottom-nav">
     <button class="tab active" data-view="inicio">🍽️<span>Diario</span></button>
     <button class="tab" data-view="progreso">📈<span>Progreso</span></button>
+    <button class="tab" data-view="social">👥<span>Social</span></button>
     <button class="tab" data-view="perfil">🎯<span>Objetivo</span></button>
     <button class="tab" data-view="ajustes">⚙️<span>Ajustes</span></button>
   </nav>
@@ -439,8 +446,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=18"></script>
-  <script src="foods.js?v=18"></script>
-  <script src="app.js?v=18"></script>
+  <script src="firebase-config.js?v=19"></script>
+  <script src="foods.js?v=19"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>
