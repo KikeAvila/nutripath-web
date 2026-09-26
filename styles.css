@@ -124,8 +124,21 @@ h2,h3{margin:0}
 .res .r-sub{font-size:12px; color:var(--muted)}
 .res .r-kcal{font-weight:700; font-size:13px; color:var(--brand-d); white-space:nowrap; margin-left:8px}
 .res.ai{border-style:dashed; border-color:var(--brand)}
+.res.man{border-style:dashed}
 .res.hint{border:0; padding:6px 2px; cursor:default}
 .res.hint .r-sub{color:var(--brand-d)}
+
+/* chips de porción rápida (plato pequeño/mediano/grande) */
+.chips{display:flex; gap:8px; margin:2px 0 6px}
+.chip{flex:1; padding:9px 6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:999px; font-size:13px; font-weight:600; cursor:pointer}
+.chip:active{background:var(--line)}
+/* fila de tres campos (macros a mano) */
+.three{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+.three .fld{margin-bottom:6px}
+/* botones de item: editar + borrar */
+.it-edit{cursor:pointer}
+.it-edit-btn{background:transparent; border:0; font-size:15px; cursor:pointer; padding:4px 2px; opacity:.75}
+.it-edit-btn:active{opacity:1}
 
 .porcion-body,.foto-body{display:flex; flex-direction:column; gap:6px}
 .porcion-preview{background:var(--bg); border-radius:12px; padding:10px 12px; font-size:13px; color:var(--muted); margin:4px 0}

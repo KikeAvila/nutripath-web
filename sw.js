@@ -1,6 +1,6 @@
 /* Service worker — cachea la app para uso OFFLINE.
    deploy.py sube el número de CACHE en cada publicación para forzar la actualización. */
-const CACHE = "nutripath-v9";
+const CACHE = "nutripath-v10";
 const ASSETS = [
   "./",
   "index.html",
@@ -32,7 +32,7 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = e.request.url;
   // No interceptar APIs externas ni el SDK de Firebase (van directas a la red).
-  if (/anthropic\.com|openfoodfacts\.org|gstatic\.com|googleapis\.com/.test(url)) return;
+  if (/anthropic\.com|openfoodfacts\.org|gstatic\.com|googleapis\.com|unpkg\.com/.test(url)) return;
 
   const esCodigo = e.request.mode === "navigate" || NETWORK_FIRST.test(url);
   if (esCodigo) {

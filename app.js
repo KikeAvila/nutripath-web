@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 9; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 10; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -136,9 +136,11 @@ function renderDiario() {
       <button class="meal-add" data-meal="${m}">+</button></div>`;
     if (!items.length) html += `<div class="meal-empty">Sin alimentos</div>`;
     items.forEach((it, i) => {
-      html += `<div class="item"><div class="it-main"><span class="it-name">${esc(it.n)}</span>
-        <span class="it-sub">${round(it.g, 0)} g · P${round(it.p, 0)} C${round(it.c, 0)} G${round(it.f, 0)}</span></div>
+      const sub = (it.g ? round(it.g, 0) + " g · " : "") + `P${round(it.p, 0)} C${round(it.c, 0)} G${round(it.f, 0)}`;
+      html += `<div class="item"><div class="it-main it-edit" data-meal="${m}" data-i="${i}"><span class="it-name">${esc(it.n)}</span>
+        <span class="it-sub">${sub}</span></div>
         <div style="display:flex;align-items:center"><span class="it-kcal">${round(it.kcal, 0)}</span>
+        <button class="it-edit-btn" data-meal="${m}" data-i="${i}">✏️</button>
         <button class="it-del" data-meal="${m}" data-i="${i}">🗑️</button></div></div>`;
     });
     // ejercicio como bloque final
@@ -161,6 +163,7 @@ function renderDiario() {
   }
 
   cont.querySelectorAll(".meal-add").forEach((b) => b.onclick = () => abrirBuscar(b.dataset.meal));
+  cont.querySelectorAll(".it-edit, .it-edit-btn").forEach((b) => b.onclick = () => editarItem(b.dataset.meal, +b.dataset.i));
   cont.querySelectorAll(".it-del[data-meal]").forEach((b) => b.onclick = () => {
     diaActual().comidas[b.dataset.meal].splice(+b.dataset.i, 1); saveState(); renderDiario();
   });
@@ -181,6 +184,7 @@ function renderPerfil() {
   $("p-nombre").value = p.nombre || ""; $("p-pin").value = p.pin || "";
   $("p-sexo").value = p.sexo || "h"; $("p-edad").value = p.edad || "";
   $("p-altura").value = p.altura || ""; $("p-peso").value = p.peso || "";
+  $("p-peso-obj").value = p.pesoObjetivo || "";
   $("p-actividad").value = String(p.actividad || 1.55); $("p-objetivo").value = p.objetivo || "perder";
   if (S.plan) mostrarPlan(S.plan, p);
 }
@@ -189,6 +193,7 @@ function guardarPerfil() {
   p.nombre = $("p-nombre").value.trim(); p.pin = $("p-pin").value.trim();
   p.sexo = $("p-sexo").value; p.edad = +$("p-edad").value || null;
   p.altura = +$("p-altura").value || null; p.peso = +$("p-peso").value || null;
+  p.pesoObjetivo = +$("p-peso-obj").value || null;
   p.actividad = +$("p-actividad").value; p.objetivo = $("p-objetivo").value;
   const plan = calcularPlan(p);
   if (!plan) { toast("Completa edad, altura y peso"); return; }
@@ -294,6 +299,11 @@ function buscarLive() {
     html += `<div class="res ai" data-ia="1"><div class="r-main"><span class="r-name">🤖 Calcular “${esc(q)}” con IA</span>
       <span class="r-sub">Estima la porción y las calorías del plato descrito</span></div><span class="r-kcal">IA</span></div>`;
   }
+  // opción manual: poner las kcal tú mismo (siempre, aunque no haya IA)
+  if (q.length > 1) {
+    html += `<div class="res man" data-man="1"><div class="r-main"><span class="r-name">✏️ Añadir “${esc(q)}” a mano</span>
+      <span class="r-sub">Tú pones las calorías y la porción (plato pequeño/mediano/grande)</span></div><span class="r-kcal">✏️</span></div>`;
+  }
   html += `<div class="res hint" id="off-loading"><div class="r-main"><span class="r-sub">Buscando productos…</span></div></div>`;
   cont.innerHTML = html;
 
@@ -304,6 +314,8 @@ function buscarLive() {
   });
   const iaEl = cont.querySelector("[data-ia]");
   if (iaEl) iaEl.onclick = () => estimarTextoIA(q);
+  const manEl = cont.querySelector("[data-man]");
+  if (manEl) manEl.onclick = () => abrirManual(q, buscarMeal);
 
   // Open Food Facts (debounce)
   clearTimeout(buscarTimer);
@@ -363,15 +375,28 @@ function offToFood(p) {
 }
 
 // ================= MODAL PORCIÓN =================
-let porcionFood = null;
-function abrirPorcion(food, gramos) {
+let porcionFood = null, porcionEdit = null;
+function abrirPorcion(food, gramos, edit) {
   porcionFood = food;
+  porcionEdit = edit || null;
   cerrar("modal-buscar");
   $("porcion-nombre").textContent = food.n;
   $("porcion-gramos").value = gramos || 100;
-  $("porcion-meal").value = buscarMeal;
+  $("porcion-meal").value = (edit && edit.meal) || buscarMeal;
+  $("porcion-add").textContent = porcionEdit ? "Guardar cambios" : "Añadir";
   actualizarPreviewPorcion();
   abrir("modal-porcion");
+}
+// Abre el modal de porción con un ítem YA añadido, para editar sus gramos/comida.
+function editarItem(meal, i) {
+  const it = diaActual().comidas[meal][i]; if (!it) return;
+  const g = +it.g || 0;
+  // reconstruye los valores por 100 g desde lo guardado (que es el total de la ración)
+  const per100 = g
+    ? { n: it.n, kcal: (+it.kcal || 0) * 100 / g, p: (+it.p || 0) * 100 / g, c: (+it.c || 0) * 100 / g, f: (+it.f || 0) * 100 / g }
+    : { n: it.n, kcal: +it.kcal || 0, p: +it.p || 0, c: +it.c || 0, f: +it.f || 0 };
+  buscarMeal = meal;
+  abrirPorcion(per100, g || 100, { meal, i });
 }
 function actualizarPreviewPorcion() {
   const g = +$("porcion-gramos").value || 0; const f = porcionFood;
@@ -381,11 +406,43 @@ function actualizarPreviewPorcion() {
 function confirmarPorcion() {
   const g = +$("porcion-gramos").value || 0; const f = porcionFood; if (!g) return;
   const meal = $("porcion-meal").value;
-  diaActual().comidas[meal].push({
-    n: f.n, g, kcal: round(f.kcal * g / 100, 1), p: round(f.p * g / 100, 1), c: round(f.c * g / 100, 1), f: round(f.f * g / 100, 1),
-  });
+  const item = { n: f.n, g, kcal: round(f.kcal * g / 100, 1), p: round(f.p * g / 100, 1), c: round(f.c * g / 100, 1), f: round(f.f * g / 100, 1) };
   recordarPorcion(f, g); // recuerda esta porción como la habitual de este alimento
+  if (porcionEdit) {
+    const arrOld = diaActual().comidas[porcionEdit.meal];
+    if (porcionEdit.meal === meal) { arrOld[porcionEdit.i] = item; }        // misma comida: reemplaza
+    else { arrOld.splice(porcionEdit.i, 1); diaActual().comidas[meal].push(item); } // movida de comida
+    porcionEdit = null;
+    saveState(); cerrar("modal-porcion"); renderDiario();
+    toast("Cambios guardados ✅");
+    return;
+  }
+  diaActual().comidas[meal].push(item);
   saveState(); cerrar("modal-porcion"); renderDiario();
+  toast(`Añadido a ${MEAL_LABEL[meal]} ✅`);
+}
+
+// ================= AÑADIR A MANO (poner kcal tú mismo) =================
+function abrirManual(nombre, meal) {
+  $("man-nombre").value = nombre || "";
+  $("man-kcal").value = ""; $("man-gramos").value = "";
+  $("man-prot").value = ""; $("man-carb").value = ""; $("man-fat").value = "";
+  $("man-meal").value = meal || buscarMeal || mealPorHora();
+  cerrar("modal-buscar");
+  abrir("modal-manual");
+  setTimeout(() => $("man-nombre").focus(), 100);
+}
+function confirmarManual() {
+  const n = $("man-nombre").value.trim() || "Comida";
+  const kcal = +$("man-kcal").value || 0;
+  if (!kcal) { toast("Pon al menos las calorías"); return; }
+  const g = +$("man-gramos").value || 0;
+  const meal = $("man-meal").value;
+  const item = { n, g, kcal: round(kcal, 1), p: round(+$("man-prot").value || 0, 1), c: round(+$("man-carb").value || 0, 1), f: round(+$("man-fat").value || 0, 1) };
+  diaActual().comidas[meal].push(item);
+  // si indicó gramos, recuérdalo por-100 g para autocompletar la próxima vez
+  if (g) recordarPorcion({ n, kcal: kcal * 100 / g, p: item.p * 100 / g, c: item.c * 100 / g, f: item.f * 100 / g }, g);
+  saveState(); cerrar("modal-manual"); renderDiario();
   toast(`Añadido a ${MEAL_LABEL[meal]} ✅`);
 }
 
@@ -494,28 +551,34 @@ async function llmAnthropic(input, maxTokens) {
 async function llmGemini(input, maxTokens) {
   const apiKey = localStorage.getItem("np_gemini_key");
   if (!apiKey) throw new Error("sin API key de Gemini");
-  const guardado = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
-  try {
-    return await geminiCall(apiKey, guardado, input, maxTokens);
-  } catch (e) {
-    if (!/ 404/.test(String(e.message || e))) throw e; // solo si el modelo no existe
-    // El modelo guardado ya no vale: pregunta a la cuenta qué modelos tiene y prueba
-    // uno por uno hasta que alguno responda (guarda el que funcione).
-    const modelos = await geminiListarModelos(apiKey);
-    if (!modelos.length) {
-      throw new Error("Gemini: esta API key no tiene modelos disponibles. Revisa que la key sea de Google AI Studio (aistudio.google.com/apikey) y que la 'Generative Language API' esté activa.");
-    }
-    let ultimo = e;
-    for (const m of modelos) {
-      if (m === guardado) continue; // ya falló arriba
-      try {
-        const out = await geminiCall(apiKey, m, input, maxTokens);
-        localStorage.setItem("np_gemini_model", m); // recuérdalo para la próxima
-        return out;
-      } catch (e2) { ultimo = e2; if (!/ 404/.test(String(e2.message || e2))) throw e2; }
-    }
-    throw ultimo;
+  const guardado = localStorage.getItem("np_gemini_model");
+  if (guardado) {
+    try { return await geminiCall(apiKey, guardado, input, maxTokens); }
+    catch (e) { if (!/ 404/.test(String(e.message || e))) throw e; } // 400/403 = key mala: no sigas
   }
+  // El modelo guardado ya no vale (o no hay): busca uno VIVO con sondeos mínimos
+  // (algunos modelos aparecen listados pero dan 404 al usarlos, p.ej. los que Google
+  // retira para cuentas nuevas), guárdalo y haz la llamada real una sola vez.
+  const { model } = await geminiProbar(apiKey);
+  localStorage.setItem("np_gemini_model", model);
+  return await geminiCall(apiKey, model, input, maxTokens);
+}
+// Recorre los modelos de la cuenta y devuelve el PRIMERO que responde de verdad a
+// una llamada mínima. Así evitamos los que están listados pero dan 404 al usarlos.
+async function geminiProbar(apiKey) {
+  const modelos = await geminiListarModelos(apiKey);
+  if (!modelos.length) throw new Error("Esta API key no tiene modelos disponibles. Crea la key en aistudio.google.com/apikey y activa la 'Generative Language API'.");
+  let ultimo = null;
+  for (const m of modelos) {
+    try {
+      const r = await geminiCall(apiKey, m, { text: "Responde solo con la palabra OK." }, 10);
+      return { model: m, respuesta: (r || "").trim() };
+    } catch (e) {
+      ultimo = e;
+      if (!/ 404/.test(String(e.message || e))) throw e; // 400/403 = key inválida: no sigas probando
+    }
+  }
+  throw ultimo || new Error("Ningún modelo de la cuenta respondió.");
 }
 async function geminiCall(apiKey, model, input, maxTokens) {
   const parts = [{ text: input.text }];
@@ -555,7 +618,9 @@ async function geminiListarModelos(apiKey) {
     .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
     .map((m) => m.name.replace(/^models\//, ""))
     .filter((n) => !/embedding|aqa|imagen|veo|tts|audio|image-generation/.test(n));
-  const prio = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"];
+  // "…-latest" es un alias que Google mantiene apuntando a un modelo vivo → primero.
+  // gemini-2.5-flash va al final: sigue listado pero Google lo retira para cuentas nuevas.
+  const prio = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"];
   const orden = [];
   for (const p of prio) if (disp.includes(p) && !orden.includes(p)) orden.push(p);
   for (const n of disp) if (/flash/.test(n) && !orden.includes(n)) orden.push(n);
@@ -577,23 +642,57 @@ function extraerJSON(txt) {
 // ================= CÓDIGO DE BARRAS =================
 let barrasStream = null, barrasLoop = null;
 function abrirBarras() { $("barras-status").textContent = ""; $("barras-input").value = ""; abrir("modal-barras"); }
+let zxingReader = null;
+// Carga ZXing (decodificador de barras en JS) bajo demanda desde un CDN. Sirve en
+// iPhone/Safari, donde BarcodeDetector NO existe.
+function cargarZXing() {
+  return new Promise((resolve, reject) => {
+    if (window.ZXing) return resolve(window.ZXing);
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload = () => window.ZXing ? resolve(window.ZXing) : reject(new Error("ZXing no cargó"));
+    s.onerror = () => reject(new Error("sin conexión para cargar el escáner"));
+    document.head.appendChild(s);
+  });
+}
 async function escanearBarras() {
-  if (!("BarcodeDetector" in window)) { $("barras-status").textContent = "Tu navegador no soporta el escáner. Escribe el código a mano."; return; }
+  const v = $("barras-video");
+  // 1) Camino nativo (Android/Chrome): rápido y sin descargar nada.
+  if ("BarcodeDetector" in window) {
+    try {
+      const det = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+      barrasStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      v.srcObject = barrasStream; v.setAttribute("muted", ""); v.muted = true; v.classList.remove("hidden"); await v.play();
+      $("barras-status").textContent = "Apunta al código de barras…";
+      barrasLoop = setInterval(async () => {
+        try { const codes = await det.detect(v); if (codes && codes.length) { pararBarras(); buscarBarras(codes[0].rawValue); } } catch (_) {}
+      }, 400);
+      return;
+    } catch (e) { /* si falla, prueba con ZXing abajo */ }
+  }
+  // 2) iPhone/Safari y navegadores sin BarcodeDetector: usa ZXing.
   try {
-    const det = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-    barrasStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-    const v = $("barras-video"); v.srcObject = barrasStream; v.classList.remove("hidden"); await v.play();
+    $("barras-status").textContent = "Preparando el escáner…";
+    const ZXing = await cargarZXing();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $("barras-status").textContent = "Este navegador no da acceso a la cámara. Escribe el código a mano."; return;
+    }
+    zxingReader = new ZXing.BrowserMultiFormatReader();
+    v.classList.remove("hidden");
     $("barras-status").textContent = "Apunta al código de barras…";
-    barrasLoop = setInterval(async () => {
-      try {
-        const codes = await det.detect(v);
-        if (codes && codes.length) { pararBarras(); buscarBarras(codes[0].rawValue); }
-      } catch (_) {}
-    }, 400);
-  } catch (e) { $("barras-status").textContent = "No pude abrir la cámara. Escribe el código a mano."; }
+    await zxingReader.decodeFromConstraints(
+      { video: { facingMode: "environment" } }, v,
+      (result) => { if (result) { const code = result.getText(); pararBarras(); buscarBarras(code); } }
+    );
+  } catch (e) {
+    const msg = /NotAllowed|Permission/i.test(String(e && e.name)) ? "Permiso de cámara denegado. Actívalo en los ajustes del navegador o escribe el código a mano."
+      : "No pude abrir la cámara (" + (e && (e.message || e.name) || e) + "). Escribe el código a mano.";
+    $("barras-status").textContent = msg;
+  }
 }
 function pararBarras() {
   clearInterval(barrasLoop);
+  if (zxingReader) { try { zxingReader.reset(); } catch (_) {} zxingReader = null; }
   if (barrasStream) { barrasStream.getTracks().forEach((t) => t.stop()); barrasStream = null; }
   $("barras-video").classList.add("hidden");
 }
@@ -645,10 +744,22 @@ function renderProgreso() {
   const isos = Object.keys(S.pesos).sort();
   dibujarLinea($("peso-chart"), isos.map((i) => S.pesos[i]), "kg");
   const st = $("peso-stats");
+  const actual = isos.length ? S.pesos[isos[isos.length - 1]] : (S.perfil.peso || null);
+  const meta = S.perfil.pesoObjetivo || null;
+  let txt = "";
   if (isos.length >= 2) {
     const dif = round(S.pesos[isos[isos.length - 1]] - S.pesos[isos[0]], 1);
-    st.textContent = `${isos.length} registros · ${dif > 0 ? "+" : ""}${dif} kg desde el inicio (${S.pesos[isos[0]]} → ${S.pesos[isos[isos.length - 1]]} kg)`;
-  } else st.textContent = "Registra tu peso para ver la evolución.";
+    txt = `${isos.length} registros · ${dif > 0 ? "+" : ""}${dif} kg desde el inicio (${S.pesos[isos[0]]} → ${S.pesos[isos[isos.length - 1]]} kg)`;
+  } else txt = "Registra tu peso para ver la evolución.";
+  if (meta && actual) {
+    const falta = round(actual - meta, 1);
+    txt += falta === 0
+      ? ` · 🎯 ¡Meta alcanzada! (${meta} kg)`
+      : ` · 🎯 Meta ${meta} kg: te ${falta > 0 ? "faltan " + falta : "has pasado " + Math.abs(falta)} kg`;
+  } else if (meta) {
+    txt += ` · 🎯 Meta ${meta} kg`;
+  }
+  st.textContent = txt;
   // kcal últimos 7 días
   const dias = []; for (let i = 6; i >= 0; i--) dias.push(hoyISO(new Date(Date.now() - i * 864e5)));
   const vals = dias.map((iso) => {
@@ -787,6 +898,10 @@ function init() {
   // porción
   $("porcion-gramos").addEventListener("input", actualizarPreviewPorcion);
   $("porcion-add").onclick = confirmarPorcion;
+  document.querySelectorAll("#modal-porcion [data-pg]").forEach((b) => b.onclick = () => { $("porcion-gramos").value = b.dataset.pg; actualizarPreviewPorcion(); });
+  // añadir a mano
+  $("man-add").onclick = confirmarManual;
+  document.querySelectorAll("#modal-manual [data-mang]").forEach((b) => b.onclick = () => { $("man-gramos").value = b.dataset.mang; });
   // foto
   $("foto-pick").onclick = () => $("foto-input").click();
   $("foto-input").addEventListener("change", (e) => { if (e.target.files[0]) analizarFoto(e.target.files[0]); });
@@ -819,7 +934,9 @@ function init() {
   if (localStorage.getItem("np_key")) keyIn.placeholder = "•••• guardada ••••";
   if (localStorage.getItem("np_gemini_key")) gKey.placeholder = "•••• guardada ••••";
   modelSel.value = localStorage.getItem("np_model") || "claude-sonnet-4-6";
-  gModel.value = localStorage.getItem("np_gemini_model") || "gemini-2.5-flash";
+  const gmGuardado = localStorage.getItem("np_gemini_model") || "gemini-flash-latest";
+  if (![].some.call(gModel.options, (o) => o.value === gmGuardado)) gModel.add(new Option(gmGuardado, gmGuardado));
+  gModel.value = gmGuardado;
   prov.onchange = () => { localStorage.setItem("np_provider", prov.value); togProv(); estadoIA(); };
   $("a-key-save").onclick = () => {
     localStorage.setItem("np_provider", prov.value);
@@ -841,13 +958,12 @@ function init() {
       if (proveedorIA() === "gemini") {
         const k = localStorage.getItem("np_gemini_key");
         if (!k) { $("a-key-state").textContent = "Primero guarda la API key de Gemini."; return; }
-        const m = await geminiElegirModelo(k);
-        if (!m) { $("a-key-state").textContent = "❌ La key no devuelve modelos. Revisa que copiaste bien la clave (AIza…) y que sea de aistudio.google.com."; return; }
+        // prueba modelos hasta que uno responda de verdad (no solo que esté listado)
+        const { model: m, respuesta } = await geminiProbar(k);
         localStorage.setItem("np_gemini_model", m);
         if (![].some.call(gModel.options, (o) => o.value === m)) gModel.add(new Option(m, m));
         gModel.value = m;
-        const r = await geminiCall(k, m, { text: "Responde solo con la palabra OK." }, 10);
-        $("a-key-state").textContent = "✅ Gemini funciona con el modelo “" + m + "”. Respuesta: " + (r || "").trim();
+        $("a-key-state").textContent = "✅ Gemini funciona con el modelo “" + m + "”. Respuesta: " + respuesta;
       } else {
         const r = await llmAnthropic({ text: "Responde solo con la palabra OK." }, 10);
         $("a-key-state").textContent = "✅ Claude funciona. Respuesta: " + (r || "").trim();
