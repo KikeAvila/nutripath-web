@@ -150,7 +150,9 @@ function renderDiario() {
     const div = document.createElement("div"); div.className = "meal";
     let html = `<div class="meal-head"><span>🔥 Ejercicio <span class="mk">−${Math.round(t.ej)} kcal</span></span></div>`;
     ej.forEach((e, i) => {
-      html += `<div class="item"><div class="it-main"><span class="it-name">${esc(e.n || "Ejercicio")}</span></div>
+      const sub = [e.min ? e.min + " min" : "", e.tipo && e.tipo !== e.n ? e.tipo : ""].filter(Boolean).join(" · ");
+      html += `<div class="item"><div class="it-main"><span class="it-name">${esc(e.n || "Ejercicio")}</span>
+        ${sub ? `<span class="it-sub">${esc(sub)}</span>` : ""}</div>
         <div style="display:flex;align-items:center"><span class="it-kcal">−${round(e.kcal, 0)}</span>
         <button class="it-del" data-ej="${i}">🗑️</button></div></div>`;
     });
@@ -522,11 +524,33 @@ async function buscarBarras(code) {
 }
 
 // ================= EJERCICIO =================
-function abrirEjercicio() { $("ej-nombre").value = ""; $("ej-kcal").value = ""; abrir("modal-ejercicio"); }
+function abrirEjercicio() {
+  $("ej-nombre").value = ""; $("ej-kcal").value = ""; $("ej-min").value = ""; $("ej-tipo").selectedIndex = 0;
+  ejPreview(); abrir("modal-ejercicio");
+}
+// kcal ≈ MET × peso(kg) × horas  (fórmula estándar de gasto por actividad)
+function ejCalcKcal() {
+  const met = +$("ej-tipo").value || 4; const min = +$("ej-min").value || 0;
+  const peso = +S.perfil.peso || 70;
+  return Math.round(met * peso * (min / 60));
+}
+function ejPreview() {
+  const auto = ejCalcKcal();
+  if (auto > 0 && !$("ej-kcal").value) $("ej-kcal").value = auto; // rellena si el usuario no ha puesto nada
+  const peso = +S.perfil.peso || 70;
+  $("ej-preview").innerHTML = auto > 0
+    ? `Estimado: <b>${auto} kcal</b> (con ${peso} kg). Puedes ajustarlo a mano.`
+    : `Elige tipo y minutos y calculo las calorías (usa tu peso del perfil).`;
+}
 function addEjercicio() {
-  const n = $("ej-nombre").value.trim() || "Ejercicio"; const kcal = +$("ej-kcal").value || 0;
-  if (!kcal) { toast("Pon las calorías"); return; }
-  diaActual().ejercicio.push({ n, kcal }); saveState(); cerrar("modal-ejercicio"); renderDiario();
+  const tipoTxt = $("ej-tipo").options[$("ej-tipo").selectedIndex].text.replace(/^[^\wÁÉÍÓÚ]+/, "").trim();
+  const nota = $("ej-nombre").value.trim();
+  const min = +$("ej-min").value || 0;
+  const kcal = +$("ej-kcal").value || ejCalcKcal();
+  if (!kcal) { toast("Pon minutos o las calorías"); return; }
+  const n = nota || tipoTxt || "Ejercicio";
+  diaActual().ejercicio.push({ n, kcal, min, nota, tipo: tipoTxt });
+  saveState(); cerrar("modal-ejercicio"); renderDiario();
   toast("Ejercicio añadido 🔥");
 }
 
@@ -685,6 +709,8 @@ function init() {
   $("barras-go").onclick = () => { const c = $("barras-input").value.trim(); if (c) buscarBarras(c); };
   // ejercicio
   $("ej-add").onclick = addEjercicio;
+  $("ej-tipo").addEventListener("change", () => { $("ej-kcal").value = ""; ejPreview(); });
+  $("ej-min").addEventListener("input", () => { $("ej-kcal").value = ""; ejPreview(); });
 
   // perfil
   $("p-guardar").onclick = guardarPerfil;

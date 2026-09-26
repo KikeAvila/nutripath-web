@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=3" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=3" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="manifest" href="manifest.webmanifest?v=4" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=4" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <header class="topbar">
@@ -258,8 +258,24 @@
         <button class="icon-btn" data-close="modal-ejercicio">✕</button>
       </div>
       <div class="porcion-body">
-        <label class="fld"><span>Actividad</span><input id="ej-nombre" type="text" placeholder="Ej: correr, gimnasio…" /></label>
-        <label class="fld"><span>Calorías quemadas (kcal)</span><input id="ej-kcal" type="number" inputmode="numeric" placeholder="kcal" /></label>
+        <label class="fld"><span>Tipo de actividad</span>
+          <select id="ej-tipo">
+            <option value="5.0">🏋️ Pesas / fuerza (moderado)</option>
+            <option value="8.0">💪 Pesas intenso / HIIT</option>
+            <option value="3.5">🚶 Andar</option>
+            <option value="9.8">🏃 Correr</option>
+            <option value="7.5">🚴 Bici</option>
+            <option value="7.0">🏊 Nadar</option>
+            <option value="5.0">🎯 Elíptica / remo</option>
+            <option value="7.0">⚽ Deporte de equipo</option>
+            <option value="3.0">🧘 Yoga / estiramientos</option>
+            <option value="4.0">🔧 Otro</option>
+          </select>
+        </label>
+        <label class="fld"><span>Duración total (min)</span><input id="ej-min" type="number" inputmode="numeric" placeholder="min" /></label>
+        <label class="fld"><span>Rutina / nota (opcional)</span><input id="ej-nombre" type="text" placeholder="Ej: Pecho y tríceps 4×10" /></label>
+        <label class="fld"><span>Calorías quemadas (kcal)</span><input id="ej-kcal" type="number" inputmode="numeric" placeholder="se calcula solo" /></label>
+        <div id="ej-preview" class="porcion-preview"></div>
         <button id="ej-add" class="btn primary big">Añadir</button>
       </div>
     </div>
@@ -270,8 +286,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=3"></script>
-  <script src="foods.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="firebase-config.js?v=4"></script>
+  <script src="foods.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
