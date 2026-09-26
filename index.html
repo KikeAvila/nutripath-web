@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=26" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=26" />
-  <link rel="stylesheet" href="styles.css?v=26" />
+  <link rel="manifest" href="manifest.webmanifest?v=27" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=27" />
+  <link rel="stylesheet" href="styles.css?v=27" />
 </head>
 <body>
   <header class="topbar">
@@ -276,6 +276,10 @@
       <div class="search-row">
         <input id="buscar-input" type="text" placeholder="Busca: pollo, arroz, manzana…" />
       </div>
+      <div class="buscar-modos">
+        <button class="btn" id="buscar-foto">📷 Foto IA</button>
+        <button class="btn" id="buscar-codigo">🏷️ Código</button>
+      </div>
       <div id="buscar-results" class="results"></div>
     </div>
   </div>
@@ -358,7 +362,7 @@
             </select>
           </label>
         </div>
-        <label class="fld"><span>Comida</span>
+        <label class="fld"><span id="porcion-meal-lbl">Comida</span>
           <select id="porcion-meal">
             <option value="desayuno">Desayuno</option>
             <option value="comida">Comida</option>
@@ -484,8 +488,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=26"></script>
-  <script src="foods.js?v=26"></script>
-  <script src="app.js?v=26"></script>
+  <script src="firebase-config.js?v=27"></script>
+  <script src="foods.js?v=27"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>

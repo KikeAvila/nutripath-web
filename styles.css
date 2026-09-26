@@ -229,6 +229,10 @@ h2,h3{margin:0; letter-spacing:-.01em}
 .ayuda-item b{font-size:14px}
 .ayuda-item p{font-size:12.5px; color:var(--muted); line-height:1.5; margin:3px 0 0}
 
+/* Botones foto/código dentro del buscador */
+.buscar-modos{display:flex; gap:8px; margin-bottom:10px}
+.buscar-modos .btn{margin-top:0}
+
 /* Campo PIN con ojo ver/ocultar */
 .pin-wrap{position:relative; display:block}
 .pin-wrap input{width:100%; padding-right:44px}

@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 26; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 27; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -40,6 +40,7 @@ function nuevoEstado() {
     recientes: [],     // alimentos usados recientemente (per 100 g), el más nuevo primero
     recetas: [],       // comidas guardadas: {nombre, items:[...]}
     social: { grupo: null }, // grupo familiar (código) para la parte social
+    apariencia: { theme: "light", accent: "verde", darkbg: "verde", lightbg: "verde", macros: "normal" }, // viaja con la cuenta
     cloudTs: 0,
   };
 }
@@ -51,6 +52,16 @@ function loadState() {
   S.porciones = S.porciones || {}; S.recientes = S.recientes || [];
   S.recetas = S.recetas || [];
   S.social = S.social || { grupo: null };
+  // apariencia: si no existe (usuario antiguo), la siembro desde lo guardado en este dispositivo
+  if (!S.apariencia) {
+    S.apariencia = {
+      theme: localStorage.getItem("np_theme") || "light",
+      accent: localStorage.getItem("np_accent") || "verde",
+      darkbg: localStorage.getItem("np_darkbg") || "verde",
+      lightbg: localStorage.getItem("np_lightbg") || "verde",
+      macros: localStorage.getItem("np_macros") || "normal",
+    };
+  }
 }
 // gramos a proponer: prioriza la cantidad/porción escrita; si no, tu porción
 // habitual recordada para ese alimento; si no, la estimación por defecto.
@@ -533,6 +544,7 @@ function abrirPorcion(food, gramos, edit) {
   $("porcion-meal").value = (edit && edit.meal) || buscarMeal;
   $("porcion-unidad").value = (edit && edit.u) || (esBebida(food) ? "ml" : "g");
   actualizarLabelUnidad();
+  $("porcion-meal-lbl").textContent = porcionEdit ? "Comida (cámbiala para MOVER este alimento)" : "Comida";
   $("porcion-add").textContent = porcionEdit ? "Guardar cambios" : "Añadir";
   actualizarPreviewPorcion();
   abrir("modal-porcion");
@@ -1048,7 +1060,9 @@ function aplicarNube(jsonStr, ts) {
   if (!data || !data.perfil) return;
   cloudAplicando = true;
   S = data; S.cloudTs = ts; S.dias = S.dias || {}; S.pesos = S.pesos || {};
+  S.recetas = S.recetas || []; S.social = S.social || { grupo: null };
   localStorage.setItem(KEY, JSON.stringify(S));
+  aplicarApariencia(); // aplica el estilo/colores guardados en la cuenta
   renderPerfil(); renderDiario(); if ($("view-progreso").classList.contains("active")) renderProgreso();
   cloudAplicando = false; actualizarEstadoNube(); toast("Sincronizado ☁️");
 }
@@ -1269,22 +1283,32 @@ function copiarDia(destinoISO, reemplazar) {
   toast("Comidas copiadas a " + fmtDia(destinoISO) + " ✅");
 }
 // ---------- apariencia (acento + fondos claro/oscuro) ----------
+// La apariencia vive en S.apariencia → se guarda en la nube y viaja con tu cuenta.
 function aplicarApariencia() {
-  document.body.setAttribute("data-accent", localStorage.getItem("np_accent") || "verde");
-  document.body.setAttribute("data-darkbg", localStorage.getItem("np_darkbg") || "verde");
-  document.body.setAttribute("data-lightbg", localStorage.getItem("np_lightbg") || "verde");
-  document.body.setAttribute("data-macros", localStorage.getItem("np_macros") || "normal");
+  const a = S.apariencia || {};
+  document.body.setAttribute("data-theme", a.theme || "light");
+  document.body.setAttribute("data-accent", a.accent || "verde");
+  document.body.setAttribute("data-darkbg", a.darkbg || "verde");
+  document.body.setAttribute("data-lightbg", a.lightbg || "verde");
+  document.body.setAttribute("data-macros", a.macros || "normal");
+  const tt = $("theme-toggle"); if (tt) tt.textContent = (a.theme === "dark") ? "☀️" : "🌙";
+  // refleja los valores en los selectores de Ajustes
+  if ($("ap-modo")) $("ap-modo").value = a.theme || "light";
+  if ($("ap-darkbg")) $("ap-darkbg").value = a.darkbg || "verde";
+  if ($("ap-lightbg")) $("ap-lightbg").value = a.lightbg || "verde";
+  if ($("ap-accent")) $("ap-accent").value = a.accent || "verde";
+  if ($("ap-macros")) $("ap-macros").value = a.macros || "normal";
 }
+function setApariencia(clave, valor) { S.apariencia = S.apariencia || {}; S.apariencia[clave] = valor; localStorage.setItem("np_" + (clave === "theme" ? "theme" : clave), valor); aplicarApariencia(); saveState(); }
 
 // ================= TEMA =================
-function setTheme(t) { document.body.setAttribute("data-theme", t); localStorage.setItem("np_theme", t); $("theme-toggle").textContent = t === "dark" ? "☀️" : "🌙"; const s = $("ap-modo"); if (s) s.value = t; }
-function toggleTheme() { setTheme(document.body.getAttribute("data-theme") === "dark" ? "light" : "dark"); }
+function setTheme(t) { setApariencia("theme", t); }
+function toggleTheme() { setTheme(((S.apariencia || {}).theme === "dark") ? "light" : "dark"); }
 
 // ================= INIT =================
 function init() {
   loadState();
   aplicarApariencia();
-  setTheme(localStorage.getItem("np_theme") || "light");
   renderPerfil(); renderDiario();
 
   // nav
@@ -1295,16 +1319,12 @@ function init() {
   $("explica-btn").onclick = abrirAyuda;
 
   // apariencia (modo, fondos, acento)
-  $("ap-modo").value = localStorage.getItem("np_theme") || "light";
-  $("ap-modo").onchange = () => setTheme($("ap-modo").value);
-  $("ap-darkbg").value = localStorage.getItem("np_darkbg") || "verde";
-  $("ap-darkbg").onchange = () => { localStorage.setItem("np_darkbg", $("ap-darkbg").value); aplicarApariencia(); };
-  $("ap-lightbg").value = localStorage.getItem("np_lightbg") || "verde";
-  $("ap-lightbg").onchange = () => { localStorage.setItem("np_lightbg", $("ap-lightbg").value); aplicarApariencia(); };
-  $("ap-accent").value = localStorage.getItem("np_accent") || "verde";
-  $("ap-accent").onchange = () => { localStorage.setItem("np_accent", $("ap-accent").value); aplicarApariencia(); };
-  $("ap-macros").value = localStorage.getItem("np_macros") || "normal";
-  $("ap-macros").onchange = () => { localStorage.setItem("np_macros", $("ap-macros").value); aplicarApariencia(); };
+  $("ap-modo").onchange = () => setApariencia("theme", $("ap-modo").value);
+  $("ap-darkbg").onchange = () => setApariencia("darkbg", $("ap-darkbg").value);
+  $("ap-lightbg").onchange = () => setApariencia("lightbg", $("ap-lightbg").value);
+  $("ap-accent").onchange = () => setApariencia("accent", $("ap-accent").value);
+  $("ap-macros").onchange = () => setApariencia("macros", $("ap-macros").value);
+  aplicarApariencia();
 
   // día
   $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };
@@ -1322,17 +1342,19 @@ function init() {
   });
   $("copiar-go").onclick = () => copiarDia($("copiar-fecha").value, $("copiar-reemplazar").checked);
 
-  // quick actions
+  // quick actions (arriba): foto/código usan la comida según la hora
   document.querySelectorAll(".qa").forEach((b) => b.onclick = () => {
     const a = b.dataset.add;
     if (a === "buscar") abrirBuscar();
-    else if (a === "foto") abrirFoto();
-    else if (a === "barras") abrirBarras();
+    else if (a === "foto") { buscarMeal = mealPorHora(); abrirFoto(); }
+    else if (a === "barras") { buscarMeal = mealPorHora(); abrirBarras(); }
     else if (a === "ejercicio") abrirEjercicio();
   });
 
-  // buscar
+  // buscar + foto/código DENTRO del buscador (van a la comida elegida)
   $("buscar-input").addEventListener("input", buscarLive);
+  $("buscar-foto").onclick = () => { cerrar("modal-buscar"); abrirFoto(); };
+  $("buscar-codigo").onclick = () => { cerrar("modal-buscar"); abrirBarras(); };
   // porción
   $("porcion-gramos").addEventListener("input", actualizarPreviewPorcion);
   $("porcion-unidad").addEventListener("change", () => { actualizarLabelUnidad(); actualizarPreviewPorcion(); });
