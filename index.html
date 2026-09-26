@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#22c55e" />
   <title>NutriPath — Nutrición y calorías</title>
-  <link rel="manifest" href="manifest.webmanifest?v=19" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=19" />
-  <link rel="stylesheet" href="styles.css?v=19" />
+  <link rel="manifest" href="manifest.webmanifest?v=20" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=20" />
+  <link rel="stylesheet" href="styles.css?v=20" />
 </head>
 <body>
   <header class="topbar">
@@ -23,9 +23,11 @@
     <section id="view-inicio" class="view active">
       <div class="date-nav">
         <button id="day-prev" class="icon-btn">‹</button>
-        <div id="day-label" class="day-label">Hoy</div>
+        <button id="day-label" class="day-label">Hoy</button>
         <button id="day-next" class="icon-btn">›</button>
       </div>
+      <div id="week-strip" class="week-strip"></div>
+      <div id="month-cal" class="month-cal hidden"></div>
 
       <div class="card summary">
         <div class="ring-wrap">
@@ -314,12 +316,20 @@
         <button class="icon-btn" data-close="modal-porcion">✕</button>
       </div>
       <div class="porcion-body">
-        <div class="chips">
+        <div class="chips" id="porcion-chips">
           <button type="button" class="chip" data-pg="150">🍽️ Pequeño</button>
           <button type="button" class="chip" data-pg="250">🍽️ Mediano</button>
           <button type="button" class="chip" data-pg="400">🍽️ Grande</button>
         </div>
-        <label class="fld"><span>Cantidad (g)</span><input id="porcion-gramos" type="number" inputmode="decimal" value="100" /></label>
+        <div class="two">
+          <label class="fld"><span id="porcion-cant-lbl">Cantidad (g)</span><input id="porcion-gramos" type="number" inputmode="decimal" value="100" /></label>
+          <label class="fld"><span>Unidad</span>
+            <select id="porcion-unidad">
+              <option value="g">gramos (g)</option>
+              <option value="ml">mililitros (ml)</option>
+            </select>
+          </label>
+        </div>
         <label class="fld"><span>Comida</span>
           <select id="porcion-meal">
             <option value="desayuno">Desayuno</option>
@@ -446,8 +456,8 @@
   <!-- Firebase (compat v8) para la sincronización en la nube -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js?v=19"></script>
-  <script src="foods.js?v=19"></script>
-  <script src="app.js?v=19"></script>
+  <script src="firebase-config.js?v=20"></script>
+  <script src="foods.js?v=20"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

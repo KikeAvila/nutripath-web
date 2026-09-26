@@ -55,6 +55,32 @@ h2,h3{margin:0; letter-spacing:-.01em}
 .date-nav{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:14px}
 .day-label{font-weight:800; min-width:120px; text-align:center; font-size:16px}
 
+/* Calendario: tira de semana + mes desplegable (estilo Fitia) */
+.day-label{background:transparent; border:0; color:var(--ink); cursor:pointer; font-family:inherit}
+.day-label::after{content:" ▾"; font-size:11px; color:var(--muted)}
+.day-label.open::after{content:" ▴"}
+.week-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:12px}
+.cal-day{display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 0; border:0; background:transparent; color:var(--ink); cursor:pointer; border-radius:12px; transition:background .15s}
+.cal-day:active{background:var(--line)}
+.cal-day .cd-dow{font-size:10px; color:var(--muted); font-weight:700}
+.cal-day .cd-num{font-size:15px; font-weight:700}
+.cal-day.today .cd-num{color:var(--brand-d)}
+.cal-day.sel{background:linear-gradient(135deg,var(--brand),var(--brand2))}
+.cal-day.sel .cd-dow,.cal-day.sel .cd-num{color:#fff}
+.cal-day.fut{opacity:.4}
+.cd-dot{width:5px; height:5px; border-radius:50%; background:transparent}
+.cd-dot.on{background:var(--carb)}
+.cal-day.sel .cd-dot.on{background:#fff}
+.month-cal{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px; margin-bottom:14px; box-shadow:var(--shadow-sm)}
+.mc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-weight:800}
+.mc-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center}
+.mc-dow{font-size:10px; color:var(--muted); font-weight:700; padding-bottom:2px}
+.mc-day{position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; border:0; background:transparent; color:var(--ink); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer}
+.mc-day .cd-dot{position:absolute; bottom:4px; left:50%; transform:translateX(-50%)}
+.mc-day.today{outline:1.5px solid var(--brand)}
+.mc-day.sel{background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff}
+.mc-day.fut{opacity:.4}
+
 /* Summary ring */
 .summary{display:flex; align-items:center; gap:18px}
 .ring-wrap{position:relative; width:144px; height:144px; flex:0 0 auto}

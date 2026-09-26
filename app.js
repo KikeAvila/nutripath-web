@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 19; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 20; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -106,9 +106,56 @@ function totalesDia() {
   return t;
 }
 
+// ---------- calendario (tira de semana + mes desplegable, estilo Fitia) ----------
+let calExpandido = false, calMes = null;
+function diaConComida(iso) { const d = S.dias[iso]; return !!(d && MEALS.some((m) => (d.comidas[m] || []).length)); }
+function isoYMD(y, m, d) { return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"); }
+function renderCalendario() {
+  renderSemana();
+  const mc = $("month-cal"); if (!mc) return;
+  const lbl = $("day-label"); if (lbl) lbl.classList.toggle("open", calExpandido);
+  if (calExpandido) { mc.classList.remove("hidden"); renderMes(); } else mc.classList.add("hidden");
+}
+function renderSemana() {
+  const cont = $("week-strip"); if (!cont) return;
+  const base = new Date(curDate + "T00:00:00");
+  const dow = (base.getDay() + 6) % 7;           // 0 = lunes
+  const lunes = new Date(base.getTime() - dow * 864e5);
+  const letras = ["L", "M", "X", "J", "V", "S", "D"];
+  const hoy = hoyISO();
+  let html = "";
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(lunes.getTime() + i * 864e5), iso = hoyISO(d);
+    const cls = [iso === curDate ? "sel" : "", iso === hoy ? "today" : "", iso > hoy ? "fut" : ""].filter(Boolean).join(" ");
+    html += `<button class="cal-day ${cls}" data-iso="${iso}"><span class="cd-dow">${letras[i]}</span><span class="cd-num">${d.getDate()}</span><span class="cd-dot ${diaConComida(iso) ? "on" : ""}"></span></button>`;
+  }
+  cont.innerHTML = html;
+  cont.querySelectorAll(".cal-day").forEach((b) => b.onclick = () => { curDate = b.dataset.iso; renderDiario(); });
+}
+function renderMes() {
+  const cont = $("month-cal"); if (!cont) return;
+  if (!calMes) { const d = new Date(curDate + "T00:00:00"); calMes = { y: d.getFullYear(), m: d.getMonth() }; }
+  const { y, m } = calMes, hoy = hoyISO();
+  const dowPrim = (new Date(y, m, 1).getDay() + 6) % 7, nDias = new Date(y, m + 1, 0).getDate();
+  const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  let html = `<div class="mc-head"><button class="icon-btn" id="mc-prev">‹</button><b>${meses[m]} ${y}</b><button class="icon-btn" id="mc-next">›</button></div><div class="mc-grid">`;
+  ["L", "M", "X", "J", "V", "S", "D"].forEach((d) => html += `<div class="mc-dow">${d}</div>`);
+  for (let i = 0; i < dowPrim; i++) html += `<div></div>`;
+  for (let dd = 1; dd <= nDias; dd++) {
+    const iso = isoYMD(y, m, dd);
+    const cls = [iso === curDate ? "sel" : "", iso === hoy ? "today" : "", iso > hoy ? "fut" : ""].filter(Boolean).join(" ");
+    html += `<button class="mc-day ${cls}" data-iso="${iso}">${dd}<span class="cd-dot ${diaConComida(iso) ? "on" : ""}"></span></button>`;
+  }
+  cont.innerHTML = html + "</div>";
+  $("mc-prev").onclick = () => { calMes = { y: m === 0 ? y - 1 : y, m: m === 0 ? 11 : m - 1 }; renderMes(); };
+  $("mc-next").onclick = () => { calMes = { y: m === 11 ? y + 1 : y, m: m === 11 ? 0 : m + 1 }; renderMes(); };
+  cont.querySelectorAll(".mc-day").forEach((b) => b.onclick = () => { curDate = b.dataset.iso; calExpandido = false; renderDiario(); });
+}
+
 // ---------- render diario ----------
 function renderDiario() {
   $("day-label").textContent = fmtDia(curDate);
+  renderCalendario();
   const plan = S.plan || {};
   const t = totalesDia();
   const objetivo = plan.kcal || 0;
@@ -138,7 +185,7 @@ function renderDiario() {
       <button class="meal-add" data-meal="${m}">+</button></div>`;
     if (!items.length) html += `<div class="meal-empty">Sin alimentos</div>`;
     items.forEach((it, i) => {
-      const sub = (it.g ? round(it.g, 0) + " g · " : "") + `P${round(it.p, 0)} C${round(it.c, 0)} G${round(it.f, 0)}`;
+      const sub = (it.g ? round(it.g, 0) + " " + (it.u || "g") + " · " : "") + `P${round(it.p, 0)} C${round(it.c, 0)} G${round(it.f, 0)}`;
       html += `<div class="item"><div class="it-main it-edit" data-meal="${m}" data-i="${i}"><span class="it-name">${esc(it.n)}</span>
         <span class="it-sub">${sub}</span></div>
         <div style="display:flex;align-items:center"><span class="it-kcal">${round(it.kcal, 0)}</span>
@@ -385,9 +432,23 @@ function abrirPorcion(food, gramos, edit) {
   $("porcion-nombre").textContent = food.n;
   $("porcion-gramos").value = gramos || 100;
   $("porcion-meal").value = (edit && edit.meal) || buscarMeal;
+  $("porcion-unidad").value = (edit && edit.u) || (esBebida(food) ? "ml" : "g");
+  actualizarLabelUnidad();
   $("porcion-add").textContent = porcionEdit ? "Guardar cambios" : "Añadir";
   actualizarPreviewPorcion();
   abrir("modal-porcion");
+}
+// Detecta bebidas para proponer ml en vez de g (densidad ≈ 1, se calcula igual).
+function esBebida(food) {
+  return /agua|leche|zumo|refresco|bebida|cerveza|vino|batido|caf[eé]|infusi|smoothie|horchata|gaseosa|\bcola\b|kombucha/i.test((food && food.n) || "");
+}
+function actualizarLabelUnidad() {
+  const u = $("porcion-unidad").value;
+  $("porcion-cant-lbl").textContent = "Cantidad (" + u + ")";
+  const chips = document.querySelectorAll("#porcion-chips [data-pg]");
+  const vals = u === "ml" ? [200, 330, 500] : [150, 250, 400];
+  const txts = u === "ml" ? ["🥤 Vaso", "🥤 Lata", "🍶 Grande"] : ["🍽️ Pequeño", "🍽️ Mediano", "🍽️ Grande"];
+  chips.forEach((b, i) => { b.dataset.pg = vals[i]; b.textContent = txts[i]; });
 }
 // Abre el modal de porción con un ítem YA añadido, para editar sus gramos/comida.
 function editarItem(meal, i) {
@@ -398,17 +459,19 @@ function editarItem(meal, i) {
     ? { n: it.n, kcal: (+it.kcal || 0) * 100 / g, p: (+it.p || 0) * 100 / g, c: (+it.c || 0) * 100 / g, f: (+it.f || 0) * 100 / g }
     : { n: it.n, kcal: +it.kcal || 0, p: +it.p || 0, c: +it.c || 0, f: +it.f || 0 };
   buscarMeal = meal;
-  abrirPorcion(per100, g || 100, { meal, i });
+  abrirPorcion(per100, g || 100, { meal, i, u: it.u || "g" });
 }
 function actualizarPreviewPorcion() {
   const g = +$("porcion-gramos").value || 0; const f = porcionFood;
-  $("porcion-preview").innerHTML = `Para <b>${round(g, 0)} g</b>: <b>${round(f.kcal * g / 100, 0)} kcal</b> · ` +
+  const u = $("porcion-unidad").value;
+  $("porcion-preview").innerHTML = `Para <b>${round(g, 0)} ${u}</b>: <b>${round(f.kcal * g / 100, 0)} kcal</b> · ` +
     `Prot ${round(f.p * g / 100, 1)} g · Carb ${round(f.c * g / 100, 1)} g · Grasa ${round(f.f * g / 100, 1)} g`;
 }
 function confirmarPorcion() {
   const g = +$("porcion-gramos").value || 0; const f = porcionFood; if (!g) return;
   const meal = $("porcion-meal").value;
-  const item = { n: f.n, g, kcal: round(f.kcal * g / 100, 1), p: round(f.p * g / 100, 1), c: round(f.c * g / 100, 1), f: round(f.f * g / 100, 1) };
+  const u = $("porcion-unidad").value;
+  const item = { n: f.n, g, u, kcal: round(f.kcal * g / 100, 1), p: round(f.p * g / 100, 1), c: round(f.c * g / 100, 1), f: round(f.f * g / 100, 1) };
   recordarPorcion(f, g); // recuerda esta porción como la habitual de este alimento
   if (porcionEdit) {
     const arrOld = diaActual().comidas[porcionEdit.meal];
@@ -1147,6 +1210,7 @@ function init() {
   // día
   $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };
   $("day-next").onclick = () => { const n = new Date(new Date(curDate).getTime() + 864e5); if (hoyISO(n) <= hoyISO()) { curDate = hoyISO(n); renderDiario(); } };
+  $("day-label").onclick = () => { calExpandido = !calExpandido; if (calExpandido) { const d = new Date(curDate + "T00:00:00"); calMes = { y: d.getFullYear(), m: d.getMonth() }; } renderCalendario(); };
   // copiar/repetir día
   $("copy-day").onclick = abrirCopiar;
   document.querySelectorAll("#modal-copiar [data-copy]").forEach((b) => b.onclick = () => {
@@ -1168,6 +1232,7 @@ function init() {
   $("buscar-input").addEventListener("input", buscarLive);
   // porción
   $("porcion-gramos").addEventListener("input", actualizarPreviewPorcion);
+  $("porcion-unidad").addEventListener("change", () => { actualizarLabelUnidad(); actualizarPreviewPorcion(); });
   $("porcion-add").onclick = confirmarPorcion;
   document.querySelectorAll("#modal-porcion [data-pg]").forEach((b) => b.onclick = () => { $("porcion-gramos").value = b.dataset.pg; actualizarPreviewPorcion(); });
   // añadir a mano
