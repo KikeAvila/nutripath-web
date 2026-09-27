@@ -4,7 +4,7 @@
 
 "use strict";
 
-const BUILD = 27; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
+const BUILD = 28; // lo sube deploy.py en cada publicación (para ver la versión en el móvil)
 const KEY = "nutripath_state";
 const MEALS = ["desayuno", "comida", "cena", "snack"];
 const MEAL_LABEL = { desayuno: "Desayuno", comida: "Comida", cena: "Cena", snack: "Snack" };
@@ -13,7 +13,7 @@ let S = null;          // estado global
 let curDate = hoyISO(); // día que se está viendo
 
 // ---------- utilidades ----------
-function hoyISO(d) { d = d || new Date(); return d.toISOString().slice(0, 10); }
+function hoyISO(d) { d = d || new Date(); const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + dd; }
 function fmtDia(iso) {
   const hoy = hoyISO();
   if (iso === hoy) return "Hoy";
@@ -1327,8 +1327,8 @@ function init() {
   aplicarApariencia();
 
   // día
-  $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate) - 864e5)); renderDiario(); };
-  $("day-next").onclick = () => { const n = new Date(new Date(curDate).getTime() + 864e5); if (hoyISO(n) <= hoyISO()) { curDate = hoyISO(n); renderDiario(); } };
+  $("day-prev").onclick = () => { curDate = hoyISO(new Date(new Date(curDate + "T00:00:00").getTime() - 864e5)); renderDiario(); };
+  $("day-next").onclick = () => { const n = new Date(new Date(curDate + "T00:00:00").getTime() + 864e5); if (hoyISO(n) <= hoyISO()) { curDate = hoyISO(n); renderDiario(); } };
   $("day-label").onclick = () => { calExpandido = !calExpandido; if (calExpandido) { const d = new Date(curDate + "T00:00:00"); calMes = { y: d.getFullYear(), m: d.getMonth() }; } renderCalendario(); };
   // agua + terminar día
   $("agua-mas").onclick = aguaMas;
@@ -1338,7 +1338,7 @@ function init() {
   $("copy-day").onclick = abrirCopiar;
   document.querySelectorAll("#modal-copiar [data-copy]").forEach((b) => b.onclick = () => {
     const off = b.dataset.copy === "ayer" ? -1 : 1;
-    copiarDia(hoyISO(new Date(new Date(curDate).getTime() + off * 864e5)), $("copiar-reemplazar").checked);
+    copiarDia(hoyISO(new Date(new Date(curDate + "T00:00:00").getTime() + off * 864e5)), $("copiar-reemplazar").checked);
   });
   $("copiar-go").onclick = () => copiarDia($("copiar-fecha").value, $("copiar-reemplazar").checked);
 
