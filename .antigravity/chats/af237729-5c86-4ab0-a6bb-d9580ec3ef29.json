@@ -16,6 +16,30 @@
       "created_at": "2026-09-27T19:33:18.848Z",
       "sender": "ios",
       "is_cancelled": false
+    },
+    {
+      "id": "b68439d9-9483-4bf5-b386-e6a27b621db1",
+      "role": "agent",
+      "content": "Dependiendo de si tu mensaje fue una pregunta sobre nutrición o una transcripción de voz, aquí tienes las posibles respuestas:\n\n---\n\n### 1. Si quisiste decir: *«¿Sabes algo de lo que estamos haciendo aquí?»*\nSí, conozco el proyecto al detalle. Estamos trabajando en **NutriPath**, una aplicación web progresiva (PWA) de nutrición y bienestar:\n\n* **Diario y nutrición**: Registro de comidas, cálculo de calorías restantes y desglose de macronutrientes (proteínas, carbohidratos y grasas) gestionado en [app.js](https://github.com/KikeAvila/nutripath-web/blob/main/app.js) y apoyado por el catálogo de alimentos de [foods.js](https://github.com/KikeAvila/nutripath-web/blob/main/foods.js).\n* **Progreso y ejercicio**: Registro de peso corporal, cálculo de calorías quemadas por actividad física y gráficos de evolución.\n* **Sincronización en la nube**: Almacenamiento local respaldado en Firebase Firestore ([firebase-config.js](https://github.com/KikeAvila/nutripath-web/blob/main/firebase-config.js)) mediante perfil y PIN.\n* **Interfaz e instalación**: Soporte PWA sin conexión mediante [sw.js](https://github.com/KikeAvila/nutripath-web/blob/main/sw.js) e interfaz responsive en [index.html](https://github.com/KikeAvila/nutripath-web/blob/main/index.html) y [styles.css](https://github.com/KikeAvila/nutripath-web/blob/main/styles.css).\n\n---\n\n### 2. Si te refieres literalmente a la **Sal** (sodio / micronutrientes)\nActualmente **no**. NutriPath solo registra calorías, proteínas, carbohidratos y grasas. Si deseas que los usuarios puedan registrar gramos de sal o miligramos de sodio en los alimentos y metas diarias, se puede implementar fácilmente.\n\n---\n\n### 3. Si te refieres a la acción de **«Salir»** (cerrar sesión)\nLa app actualmente no tiene un botón explícito de *«Salir / Desconectar»* en el perfil ([`guardarPerfil`](https://github.com/KikeAvila/nutripath-web/blob/main/app.js#L308)); los datos permanecen en `localStorage`. Si necesitas un botón para cerrar sesión y limpiar el perfil local, también podemos añadirlo.\n\n---\n\n¿Cuál de estos aspectos es el que querías consultar o modificar?",
+      "status": "completed",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": "6708d45a-69ec-43f7-87ae-c891be22086a",
+      "created_at": "2026-09-27T19:34:04.380Z",
+      "sender": "macOS",
+      "is_cancelled": false
+    },
+    {
+      "id": "fec890b6-17c3-48dc-9327-3cf92fbd753d",
+      "role": "user",
+      "content": "No. La primera opción. Solo quería saber si tenía que darte la dirección de mi xsepta local. Como ahora estiy del móvil. Entonces lo que hablemos aquí. Lo puedo retomar en el ordenador?",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-09-27T19:35:52.925Z",
+      "sender": "ios",
+      "is_cancelled": false
     }
   ]
 }
